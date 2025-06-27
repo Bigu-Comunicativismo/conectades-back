@@ -1,1 +1,1 @@
-# conectades
+Solução Digital criada pela Bigu Comunicativismo para promover a troca e solidariedade entre mulheres, pessoas trans e travestis, focando prioritariamente em apoios relativos a questão do trabalho, para promover autonomia dessas pessoas # conectades
