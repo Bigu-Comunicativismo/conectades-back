@@ -1,0 +1,10 @@
+djangorestframework-simplejwt
+Django>=5.0,<6.0
+djangorestframework
+psycopg2-binary
+drf_spectacular
+pillow
+# Redis e servidor ASGI para alta performance
+django-redis>=5.4.0
+uvicorn[standard]>=0.24.0
+gunicorn>=21.2.0
