@@ -1,0 +1,121 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "resources": [
+    {
+      "_id": "wrk_conectades",
+      "_type": "workspace",
+      "name": "Conectades API",
+      "description": "API para plataforma de campanhas de doação"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost",
+        "api_base": "http://localhost/api",
+        "token": ""
+      }
+    },
+    {
+      "_id": "req_login",
+      "_type": "request",
+      "name": "1. Login - Obter Token",
+      "method": "POST",
+      "url": "{{ _.api_base }}/token/",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+      }
+    },
+    {
+      "_id": "req_list_campanhas",
+      "_type": "request",
+      "name": "2. Listar Campanhas",
+      "method": "GET",
+      "url": "{{ _.api_base }}/campanhas/listar/",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_minhas_campanhas",
+      "_type": "request",
+      "name": "3. Minhas Campanhas",
+      "method": "GET",
+      "url": "{{ _.api_base }}/campanhas/minhas/",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.token }}"
+        }
+      ]
+    },
+    {
+      "_id": "req_criar_campanha",
+      "_type": "request",
+      "name": "4. Criar Campanha",
+      "method": "POST",
+      "url": "{{ _.api_base }}/campanhas/criar/",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"titulo\": \"Campanha de Alimentos\",\n  \"descricao\": \"Arrecadação de alimentos para comunidade\",\n  \"data_inicio\": \"2024-01-01\",\n  \"data_fim\": \"2024-12-31\",\n  \"beneficiaria_id\": 1\n}"
+      }
+    },
+    {
+      "_id": "req_criar_doacao",
+      "_type": "request",
+      "name": "5. Criar Doação",
+      "method": "POST",
+      "url": "{{ _.api_base }}/doacoes/criar/",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.token }}"
+        },
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"campanha_id\": 1,\n  \"tipo\": \"alimento\",\n  \"descricao\": \"10kg de arroz e 5kg de feijão\"\n}"
+      }
+    },
+    {
+      "_id": "req_list_doacoes",
+      "_type": "request",
+      "name": "6. Listar Doações",
+      "method": "GET",
+      "url": "{{ _.api_base }}/doacoes/listar/1/",
+      "headers": [
+        {
+          "name": "Authorization",
+          "value": "Bearer {{ _.token }}"
+        }
+      ]
+    }
+  ]
+}
+
