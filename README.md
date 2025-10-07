@@ -124,8 +124,8 @@ docker-compose exec web python backend/manage.py shell -c "from django.contrib.a
 ```
 
 ### 4. Acessar:
-- API: http://localhost/api/docs/
-- Admin: http://localhost/admin/ (admin/admin123)
+- API: http://localhost:8000/api/docs/
+- Admin: http://localhost:8000/admin/ (admin/admin123)
 
 ---
 
@@ -160,7 +160,7 @@ docker-compose exec redis redis-cli ping
 ## 🧪 Testando a API
 
 ### Documentação Swagger (Recomendado):
-Acesse http://localhost/api/docs/ após iniciar a aplicação.
+Acesse http://localhost:8000/api/docs/ após iniciar a aplicação.
 
 ### Testando com Insomnia ou Postman:
 Ver guia completo em: **[TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)**
@@ -182,7 +182,7 @@ Ver guia completo em: **[TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)
 - **Testes com Insomnia/Postman**: [TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)
 - **Performance e Otimizações**: [README_PERFORMANCE.md](README_PERFORMANCE.md)
 - **Arquitetura Detalhada**: [arquitetura.md](arquitetura.md)
-- **API Interativa**: http://localhost/api/docs/
+- **API Interativa**: http://localhost:8000/api/docs/
 
 ---
 
