@@ -115,6 +115,23 @@
           "value": "Bearer {{ _.token }}"
         }
       ]
+    },
+    {
+      "_id": "req_cadastrar_usuario",
+      "_type": "request",
+      "name": "7. Cadastrar Usuário Completo",
+      "method": "POST",
+      "url": "{{ _.api_base }}/cadastro/criar/",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"username\": \"maria_teste\",\n  \"password\": \"Teste123\",\n  \"nome_completo\": \"Maria Silva Santos\",\n  \"cpf\": \"123.456.789-00\",\n  \"telefone\": \"(81) 99999-9999\",\n  \"email\": \"maria@email.com\",\n  \"tipo_usuario\": 2,\n  \"genero\": 1,\n  \"cidade\": \"Recife\",\n  \"bairro\": \"Boa Viagem\",\n  \"nome_social\": \"Maria\",\n  \"mini_bio\": \"Sou uma pessoa solidária e gosto de ajudar outras mulheres.\",\n  \"categorias_interesse\": [1, 2, 4],\n  \"localizacoes_interesse\": [1, 2]\n}"
+      }
     }
   ]
 }

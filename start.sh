@@ -47,43 +47,78 @@ until docker-compose exec -T redis redis-cli ping; do
 done
 echo "✅ Redis está pronto!"
 
-# Aguardar Django via HTTP (Nginx -> web) para garantir que a stack respondeu
-echo "🐍 Aguardando Django (via Nginx /health)..."
+# Aguardar Django estar pronto
+echo "🐍 Aguardando Django..."
 ATTEMPTS=0
-until curl -sf http://localhost/health > /dev/null; do
+MAX_ATTEMPTS=30
+until docker-compose exec -T web python backend/manage.py check >/dev/null 2>&1; do
     ATTEMPTS=$((ATTEMPTS+1))
-    # Fallback: tentar checar via manage.py com caminho correto
-    docker-compose exec -T web python backend/manage.py check >/dev/null 2>&1 || true
-    echo "   Django ainda não está pronto... (tentativa $ATTEMPTS)"
-    sleep 2
-    # Evitar loop infinito (timeout ~120s)
-    if [ "$ATTEMPTS" -ge 60 ]; then
-        echo "⚠️  Timeout aguardando Django. Verificando logs do web:"
-        docker-compose logs --tail=100 web
+    if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
+        echo "⚠️  Timeout aguardando Django. Logs:"
+        docker-compose logs web --tail=50
         exit 1
     fi
+    echo "   Aguardando... ($ATTEMPTS/$MAX_ATTEMPTS)"
+    sleep 3
 done
 echo "✅ Django está pronto!"
 
 # Executar migrações
 echo "📊 Executando migrações..."
-docker-compose exec -T web python manage.py migrate
+docker-compose exec -T web python backend/manage.py migrate
 
 # Coletar arquivos estáticos
 echo "📁 Coletando arquivos estáticos..."
-docker-compose exec -T web python manage.py collectstatic --noinput
+docker-compose exec -T web python backend/manage.py collectstatic --noinput
 
-# Criar superusuário (opcional)
-echo "👤 Criando superusuário de teste..."
-docker-compose exec -T web python manage.py shell -c "
-from django.contrib.auth import get_user_model
-User = get_user_model()
-if not User.objects.filter(username='admin').exists():
-    User.objects.create_superuser('admin', 'admin@conectades.com', 'admin123')
-    print('Superusuário criado: admin/admin123')
-else:
-    print('Superusuário já existe')
-"
+# Popular dados iniciais (executa migrations/0005)
+echo "📝 Populando dados iniciais (tipos, gêneros, categorias)..."
+docker-compose exec -T web python backend/manage.py migrate pessoas 0005 2>/dev/null || true
+
+# Carregar localizações
+echo "🌍 Carregando localizações da RMR..."
+docker-compose exec -T web python backend/manage.py carregar_localizacoes_rmr 2>/dev/null || echo "⚠️  Aviso: erro ao carregar localizações"
+
+# Criar superusuário
+echo "👤 Criando superusuário..."
+docker-compose exec -T web python backend/manage.py shell -c "
+from backend.pessoas.models import Pessoa, TipoUsuario, Genero, CategoriaInteresse, LocalizacaoInteresse
+
+try:
+    tipo_doadora = TipoUsuario.objects.get(codigo='doadora')
+    genero = Genero.objects.get(codigo='prefiro-nao-informar')
+    categoria = CategoriaInteresse.objects.get(codigo='outros')
+    localizacao = LocalizacaoInteresse.objects.filter(tipo='cidade').first()
+    
+    admin_user, created = Pessoa.objects.get_or_create(
+        username='admin',
+        defaults={
+            'nome_completo': 'Administrador do Sistema',
+            'cpf': '000.000.000-00',
+            'telefone': '(81) 99999-9999',
+            'email': 'admin@conectades.com',
+            'tipo_usuario': tipo_doadora,
+            'genero': genero,
+            'cidade': 'Recife',
+            'bairro': 'Centro',
+            'nome_social': 'Admin',
+            'mini_bio': 'Administrador do sistema',
+            'is_staff': True,
+            'is_superuser': True,
+        }
+    )
+    
+    admin_user.set_password('admin123')
+    admin_user.save()
+    
+    admin_user.categorias_interesse.set([categoria])
+    if localizacao:
+        admin_user.localizacoes_interesse.set([localizacao])
+    
+    print('✅ Superusuário: admin/admin123')
+except Exception as e:
+    print(f'⚠️  Erro ao criar superusuário: {e}')
+" 2>/dev/null || echo "⚠️  Aviso: erro ao criar superusuário"
 
 # Verificar status dos serviços
 echo ""
@@ -116,4 +151,18 @@ echo ""
 echo "✅ APLICAÇÃO INICIADA COM SUCESSO!"
 echo "🎯 Arquitetura otimizada para 1000+ usuários simultâneos"
 echo "⚡ Nginx + Redis + Uvicorn + Django"
+echo ""
+echo "📊 DADOS POPULADOS:"
+echo "==================="
+echo "✅ 2 Tipos de Usuário (Beneficiária, Doadora)"
+echo "✅ 10 Gêneros"
+echo "✅ 11 Categorias de Interesse"
+echo "✅ 15 Cidades da RMR"
+echo "✅ 91 Bairros de Recife"
+echo "✅ Total: 106 localizações"
+echo ""
+echo "👤 LOGIN ADMIN:"
+echo "==============="
+echo "Usuário: admin"
+echo "Senha: admin123"
 

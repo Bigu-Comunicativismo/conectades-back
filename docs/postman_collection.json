@@ -90,6 +90,45 @@
               "path": ["token", "refresh", ""]
             }
           }
+        },
+        {
+          "name": "3. Cadastrar Usuário Completo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code é 201', function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test('Usuário criado com sucesso', function () {",
+                  "    const jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.collectionVariables.set('user_id', jsonData.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"teste_{{$timestamp}}\",\n  \"password\": \"Teste123\",\n  \"nome_completo\": \"Maria Silva Santos\",\n  \"cpf\": \"123.456.789-00\",\n  \"telefone\": \"(81) 99999-9999\",\n  \"email\": \"maria{{$timestamp}}@email.com\",\n  \"tipo_usuario\": 2,\n  \"genero\": 1,\n  \"cidade\": \"Recife\",\n  \"bairro\": \"Boa Viagem\",\n  \"nome_social\": \"Maria\",\n  \"mini_bio\": \"Sou uma pessoa solidária e gosto de ajudar outras mulheres.\",\n  \"categorias_interesse\": [1, 2, 4],\n  \"localizacoes_interesse\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{api_base}}/cadastro/criar/",
+              "host": ["{{api_base}}"],
+              "path": ["cadastro", "criar", ""]
+            }
+          }
         }
       ]
     },
@@ -293,6 +332,59 @@
                   "value": "{{token}}"
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Opções Dinâmicas",
+      "item": [
+        {
+          "name": "Listar Tipos de Usuário",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_base}}/cadastro/tipos-usuario/",
+              "host": ["{{api_base}}"],
+              "path": ["cadastro", "tipos-usuario", ""]
+            }
+          }
+        },
+        {
+          "name": "Listar Gêneros",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_base}}/cadastro/generos/",
+              "host": ["{{api_base}}"],
+              "path": ["cadastro", "generos", ""]
+            }
+          }
+        },
+        {
+          "name": "Listar Categorias de Interesse",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_base}}/cadastro/categorias-interesse/",
+              "host": ["{{api_base}}"],
+              "path": ["cadastro", "categorias-interesse", ""]
+            }
+          }
+        },
+        {
+          "name": "Listar Localizações de Interesse",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{api_base}}/cadastro/localizacoes-interesse/",
+              "host": ["{{api_base}}"],
+              "path": ["cadastro", "localizacoes-interesse", ""]
             }
           }
         }

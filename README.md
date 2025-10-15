@@ -1,184 +1,186 @@
-# Conectades
+# 🌟 Conectades - Plataforma de Conexão Social
 
-Solução Digital criada pela Bigu Comunicativismo com apoio do Nic.br e Ponte a Ponte para promover a troca e solidariedade entre mulheres, pessoas trans e travestis, focando prioritariamente em apoios relativos a questão do trabalho, para promover autonomia dessas pessoas.
-
----
-
-## 📋 Índice
-
-- [Sobre o Projeto](#sobre-o-projeto)
-- [Arquitetura](#arquitetura)
-- [Pré-requisitos](#pré-requisitos)
-- [Instalação Linux](#instalação-linux)
-- [Instalação macOS](#instalação-macos)
-- [Instalação Windows](#instalação-windows)
-- [Testando com Insomnia](#testando-com-insomnia)
-- [Testando com Postman](#testando-com-postman)
-- [Troubleshooting](#troubleshooting)
+Plataforma para conectar pessoas e campanhas sociais, facilitando doações e voluntariado na Região Metropolitana do Recife.
 
 ---
 
-## 🎯 Sobre o Projeto
+## 🚀 Início Rápido
 
-Plataforma de campanhas de doação que conecta beneficiárias, doadoras e organizadoras.
-
-**Funcionalidades:**
-- ✅ Cadastro de pessoas (beneficiárias, doadoras, organizadoras)
-- ✅ Criação e gerenciamento de campanhas
-- ✅ Registro de doações
-- ✅ Autenticação JWT
-- ✅ API RESTful documentada
-- ✅ Cache Redis (1000+ usuários simultâneos)
-
----
-
-## 🏗️ Arquitetura
-
-**Performance:** 500-1000 RPS | Latência 10-50ms | Cache 80-90% | 1000+ usuários
-
-```
-NGINX → UVICORN (4 workers) → REDIS CACHE → POSTGRESQL
-```
-
----
-
-## 📦 Pré-requisitos
-
-**Todos os sistemas:**
-- Docker ≥ 20.10
-- Docker Compose ≥ 2.0
-- Git
-- RAM: 6GB+ (recomendado)
-- Disco: 5GB+
-
----
-
-## 🐧 Instalação Linux
-
-### 1. Clonar e iniciar:
 ```bash
-git clone <url-do-repositorio>
-cd conectades
+# Clonar repositório
+git clone https://github.com/Bigu-Comunicativismo/conectades-back.git
+cd conectades-back
+
+# Iniciar aplicação (build + migração + população de dados)
 chmod +x start.sh
 ./start.sh
 ```
 
-### 2. Acessar:
-- API: http://localhost/api/docs/
-- Admin: http://localhost/admin/ (admin/admin123)
-
-### Comandos úteis:
-```bash
-docker-compose logs -f          # Logs
-docker-compose down             # Parar
-docker-compose exec web python backend/manage.py migrate  # Migrações
-```
+**Pronto!** Acesse:
+- 🌐 **Admin**: http://localhost/admin/ (admin/admin123)
+- 📚 **API Docs**: http://localhost/api/docs/
+- 🔗 **API**: http://localhost/api/
 
 ---
 
-## 🍎 Instalação macOS
+## ✨ Principais Funcionalidades
 
-### 1. Instalar Docker Desktop:
-- Baixe: https://docs.docker.com/desktop/install/mac-install/
-- Inicie o Docker Desktop
+### **Sistema Dinâmico de Cadastro**
+- ✅ **Tabelas configuráveis** (Tipos, Gêneros, Categorias)
+- ✅ **Códigos auto-gerados** (sem necessidade de inserir manualmente)
+- ✅ **106 localizações** da RMR pré-carregadas
 
-### 2. Clonar e iniciar:
+### **Gestão de Campanhas**
+- ✅ **Doadoras** podem criar campanhas
+- ✅ **Organizadora** criada automaticamente
+- ✅ **Beneficiárias** recebem ajuda
+
+### **Alta Performance**
+- ✅ **1000+ usuários simultâneos**
+- ✅ **Redis** para cache
+- ✅ **Nginx** como load balancer
+- ✅ **Uvicorn** ASGI server
+
+---
+
+## 📊 Dados Pré-populados
+
+| Tipo | Quantidade | Exemplos |
+|------|-----------|----------|
+| **Tipos de Usuário** | 2 | Beneficiária, Doadora |
+| **Gêneros** | 10 | Mulher Cis, Não-binário, Travesti, ... |
+| **Categorias** | 11 | Alimentação, Educação, Saúde, ... |
+| **Cidades RMR** | 15 | Recife, Olinda, Jaboatão, ... |
+| **Bairros** | 91 | Boa Viagem, Casa Forte, Graças, ... |
+
+---
+
+## 🛠️ Tecnologias
+
+- **Backend**: Django 5.2 + Django REST Framework
+- **Banco de Dados**: PostgreSQL 15
+- **Cache**: Redis 7
+- **Servidor**: Uvicorn (ASGI)
+- **Proxy**: Nginx
+- **Containerização**: Docker + Docker Compose
+
+---
+
+## 📖 Documentação Completa
+
+- 📘 [Guia de Instalação Completo](docs/README.md)
+- 🧪 [Testes com Insomnia/Postman](docs/TESTES_INSOMNIA_POSTMAN.md)
+- 🏗️ [Arquitetura do Sistema](docs/arquitetura.md)
+- 👩‍💼 [Lógica da Organizadora](docs/LOGICA_ORGANIZADORA.md)
+- 🌍 [Integração com Localizações](docs/CIDADES_API.md)
+- ⚡ [Performance e Otimizações](docs/README_PERFORMANCE.md)
+
+---
+
+## 🎯 Comandos Úteis
+
 ```bash
-git clone <url-do-repositorio>
-cd conectades
-chmod +x start.sh
+# Iniciar aplicação
 ./start.sh
-```
 
-### 3. Acessar:
-- API: http://localhost/api/docs/
-- Admin: http://localhost/admin/ (admin/admin123)
-
----
-
-## 🪟 Instalação Windows
-
-### 1. Instalar:
-- Docker Desktop: https://docs.docker.com/desktop/install/windows-install/
-- Git for Windows: https://git-scm.com/download/win
-- Habilite WSL 2
-
-### 2. PowerShell:
-```powershell
-git clone <url-do-repositorio>
-cd conectades
-
+# Parar containers
 docker-compose down
-docker-compose build --no-cache
-docker-compose up -d
 
-Start-Sleep -Seconds 30
+# Ver logs
+docker-compose logs -f web
 
-docker-compose exec -T web python backend/manage.py migrate
-docker-compose exec -T web python backend/manage.py collectstatic --noinput
+# Carregar localizações da RMR
+docker-compose exec web python backend/manage.py carregar_localizacoes_rmr
+
+# Acessar shell Django
+docker-compose exec web python backend/manage.py shell
 ```
 
-### 3. Criar admin:
-```powershell
-docker-compose exec web python backend/manage.py shell -c "from django.contrib.auth import get_user_model; U=get_user_model(); u,c=U.objects.get_or_create(username='admin', defaults={'email':'admin@conectades.com'}); u.is_staff=True; u.is_superuser=True; u.set_password('admin123'); u.save(); print('OK')"
-```
+---
 
+## 👥 Tipos de Usuário
+
+### **Beneficiária**
+- Recebe doações e ajuda
+- NÃO pode criar campanhas
+
+### **Doadora**
+- Faz doações
+- PODE criar campanhas
+- Vira Organizadora automaticamente ao criar primeira campanha
+
+### **Organizadora**
+- É uma Doadora que já criou campanhas
+- Gerencia suas próprias campanhas
+- Perfil criado automaticamente (não precisa cadastro)
+
+---
+
+## 🌐 URLs de Acesso
+
+| Serviço | URL | Credenciais |
+|---------|-----|-------------|
+| **Admin Django** | http://localhost/admin/ | admin/admin123 |
+| **API Docs (Swagger)** | http://localhost/api/docs/ | - |
+| **API** | http://localhost/api/ | Token JWT |
+| **Health Check** | http://localhost/health | - |
+
+---
+
+## 🔒 Segurança
+
+- ✅ Autenticação JWT
+- ✅ Rate limiting (100 req/min anônimo, 200 req/min autenticado)
+- ✅ CORS configurado
+- ✅ Proteção contra força bruta
+- ✅ Validações de CPF e telefone
 ### 4. Acessar:
 - API: http://localhost:8000/api/docs/
 - Admin: http://localhost:8000/admin/ (admin/admin123)
 
 ---
 
-## 🔧 Troubleshooting
+## 📈 Escalabilidade
 
-### Porta 80 em uso:
-```bash
-# Linux
-sudo lsof -i :80
-sudo systemctl stop apache2
-
-# Ou mudar porta no docker-compose.yml:
-# nginx: ports: - "8080:80"
-```
-
-### Reconstruir tudo:
-```bash
-docker-compose down -v
-docker-compose build --no-cache
-./start.sh
-```
-
-### Verificar serviços:
-```bash
-docker-compose ps
-curl http://localhost/health
-docker-compose exec redis redis-cli ping
-```
+### **Suporta 1000+ usuários simultâneos:**
+- 4 workers Uvicorn
+- Connection pooling PostgreSQL (200 conexões)
+- Redis com 2GB memória
+- Nginx com rate limiting
 
 ---
 
-## 🧪 Testando a API
+## 🤝 Contribuindo
 
+1. Fork o projeto
+2. Crie uma branch (`git checkout -b feature/nova-feature`)
+3. Commit suas mudanças (`git commit -m 'feat: adiciona nova feature'`)
+4. Push para a branch (`git push origin feature/nova-feature`)
+5. Abra um Pull Request
+
+---
+
+## 📝 Licença
+
+Este projeto está sob a licença MIT.
 ### Documentação Swagger (Recomendado):
 Acesse http://localhost:8000/api/docs/ após iniciar a aplicação.
 
-### Testando com Insomnia ou Postman:
-Ver guia completo em: **[TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)**
+---
 
-**Collections prontas para importar:**
-- 📥 **Insomnia**: `insomnia_collection.json`
-- 📥 **Postman**: `postman_collection.json`
+## 👏 Créditos
 
-**Quick Start:**
-1. Importar collection no seu cliente REST
-2. Executar request **"1. Login"** para obter token
-3. Token é salvo automaticamente
-4. Testar outros endpoints
+**Desenvolvido por:** Bigu Comunicativismo  
+**Apoio:** Nic.br e Ponte a Ponte  
+**Região:** Metropolitana do Recife - PE
 
 ---
 
-## 📖 Mais Documentação
+## 📞 Suporte
 
+- 📧 Email: contato@bigucomunicativismo.com.br
+- 🌐 Site: [bigucomunicativismo.com.br](https://bigucomunicativismo.com.br)
+- 💬 Issues: [GitHub Issues](https://github.com/Bigu-Comunicativismo/conectades-back/issues)
 - **Testes com Insomnia/Postman**: [TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)
 - **Performance e Otimizações**: [README_PERFORMANCE.md](README_PERFORMANCE.md)
 - **Arquitetura Detalhada**: [arquitetura.md](arquitetura.md)
@@ -186,4 +188,5 @@ Ver guia completo em: **[TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)
 
 ---
 
-**Desenvolvido por Bigu Comunicativismo | Apoio: Nic.br e Ponte a Ponte**
+**⭐ Se este projeto foi útil, considere dar uma estrela no GitHub!**
+
