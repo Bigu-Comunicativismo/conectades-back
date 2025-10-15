@@ -134,6 +134,9 @@ docker-compose exec web python backend/manage.py shell
 - ✅ CORS configurado
 - ✅ Proteção contra força bruta
 - ✅ Validações de CPF e telefone
+### 4. Acessar:
+- API: http://localhost:8000/api/docs/
+- Admin: http://localhost:8000/admin/ (admin/admin123)
 
 ---
 
@@ -160,6 +163,8 @@ docker-compose exec web python backend/manage.py shell
 ## 📝 Licença
 
 Este projeto está sob a licença MIT.
+### Documentação Swagger (Recomendado):
+Acesse http://localhost:8000/api/docs/ após iniciar a aplicação.
 
 ---
 
@@ -176,6 +181,10 @@ Este projeto está sob a licença MIT.
 - 📧 Email: contato@bigucomunicativismo.com.br
 - 🌐 Site: [bigucomunicativismo.com.br](https://bigucomunicativismo.com.br)
 - 💬 Issues: [GitHub Issues](https://github.com/Bigu-Comunicativismo/conectades-back/issues)
+- **Testes com Insomnia/Postman**: [TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)
+- **Performance e Otimizações**: [README_PERFORMANCE.md](README_PERFORMANCE.md)
+- **Arquitetura Detalhada**: [arquitetura.md](arquitetura.md)
+- **API Interativa**: http://localhost:8000/api/docs/
 
 ---
 
