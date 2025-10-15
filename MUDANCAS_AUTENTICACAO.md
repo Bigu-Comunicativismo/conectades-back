@@ -28,6 +28,8 @@ Todos esses endpoints **NÃO REQUEREM** autenticação:
 | POST | `/api/auth/registro/iniciar/` | Etapa 1: Envia código por email |
 | POST | `/api/auth/registro/confirmar/` | Etapa 2: Confirma código e cria conta |
 | POST | `/api/auth/login/` | Login com email + senha |
+| POST | `/api/auth/senha/recuperar/` | Etapa 1: Solicita recuperação (envia código) |
+| POST | `/api/auth/senha/redefinir/` | Etapa 2: Redefine senha (verifica código) |
 | POST | `/api/auth/codigo/solicitar/` | Solicita novo código |
 | POST | `/api/auth/codigo/verificar/` | Verifica se código é válido |
 
@@ -112,6 +114,54 @@ POST /api/auth/login/
   }
 }
 ```
+
+---
+
+## 🔑 **Recuperação de Senha (2 Etapas)**
+
+### **1️⃣ Solicitar Recuperação**
+```bash
+POST /api/auth/senha/recuperar/
+
+{
+  "email": "maria@example.com"
+}
+```
+
+**Resposta:**
+```json
+{
+  "message": "Código de recuperação enviado para seu email",
+  "email": "maria@example.com",
+  "validade": "10 minutos"
+}
+```
+
+### **2️⃣ Redefinir com Código**
+```bash
+POST /api/auth/senha/redefinir/
+
+{
+  "email": "maria@example.com",
+  "codigo": "654321",
+  "nova_senha": "NovaSenha123!",
+  "confirmar_senha": "NovaSenha123!"
+}
+```
+
+**Resposta:**
+```json
+{
+  "message": "✅ Senha redefinida com sucesso!",
+  "user": { ... },
+  "tokens": {
+    "refresh": "...",
+    "access": "..."
+  }
+}
+```
+
+**Observação:** Após redefinir a senha, você recebe tokens JWT para login automático!
 
 ---
 

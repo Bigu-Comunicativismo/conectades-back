@@ -8,9 +8,10 @@ Sistema de autenticação em 2 fatores com verificação por email.
 
 1. [Cadastro (Registro)](#cadastro-registro)
 2. [Login](#login)
-3. [Endpoints Públicos](#endpoints-públicos)
-4. [Endpoints Protegidos](#endpoints-protegidos)
-5. [Exemplos de Uso](#exemplos-de-uso)
+3. [Recuperação de Senha](#recuperação-de-senha)
+4. [Endpoints Públicos](#endpoints-públicos)
+5. [Endpoints Protegidos](#endpoints-protegidos)
+6. [Exemplos de Uso](#exemplos-de-uso)
 
 ---
 
@@ -133,6 +134,77 @@ sequenceDiagram
 
 ---
 
+## 🔑 **Recuperação de Senha**
+
+### **Fluxo em 2 Etapas:**
+
+```mermaid
+sequenceDiagram
+    User->>API: 1️⃣ POST /api/auth/senha/recuperar/
+    API->>Validação: Verifica se email existe
+    API->>Email: Envia código (654321)
+    API-->>User: ✅ Código enviado
+    User->>API: 2️⃣ POST /api/auth/senha/redefinir/
+    API->>Validação: Verifica código
+    API->>DB: Atualiza senha
+    API-->>User: ✅ Senha redefinida + JWT tokens
+```
+
+### **1️⃣ Etapa 1: Solicitar Recuperação**
+
+**Endpoint:** `POST /api/auth/senha/recuperar/`  
+**Autenticação:** ❌ **Pública** (não requer token)
+
+**Body (JSON):**
+```json
+{
+  "email": "maria@example.com"
+}
+```
+
+**Resposta (200 OK):**
+```json
+{
+  "message": "Código de recuperação enviado para seu email",
+  "email": "maria@example.com",
+  "validade": "10 minutos",
+  "proximo_passo": "Use o endpoint /api/auth/senha/redefinir/ com o código recebido"
+}
+```
+
+### **2️⃣ Etapa 2: Redefinir Senha**
+
+**Endpoint:** `POST /api/auth/senha/redefinir/`  
+**Autenticação:** ❌ **Pública** (não requer token)
+
+**Body (JSON):**
+```json
+{
+  "email": "maria@example.com",
+  "codigo": "654321",
+  "nova_senha": "NovaSenha123!",
+  "confirmar_senha": "NovaSenha123!"
+}
+```
+
+**Resposta (200 OK):**
+```json
+{
+  "message": "✅ Senha redefinida com sucesso! Você já está logada, Maria!",
+  "user": {
+    "id": 5,
+    "username": "maria_silva",
+    ...
+  },
+  "tokens": {
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+    "access": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+  }
+}
+```
+
+---
+
 ## 🌐 **Endpoints Públicos**
 
 Todos esses endpoints **NÃO REQUEREM** token JWT:
@@ -143,6 +215,8 @@ Todos esses endpoints **NÃO REQUEREM** token JWT:
 | POST | `/api/auth/registro/iniciar/` | Inicia registro (envia código) |
 | POST | `/api/auth/registro/confirmar/` | Confirma registro (verifica código) |
 | POST | `/api/auth/login/` | Login (retorna JWT) |
+| POST | `/api/auth/senha/recuperar/` | Solicita recuperação de senha (envia código) |
+| POST | `/api/auth/senha/redefinir/` | Redefine senha (verifica código e atualiza) |
 | POST | `/api/auth/codigo/solicitar/` | Solicita novo código |
 | POST | `/api/auth/codigo/verificar/` | Verifica código |
 
@@ -213,7 +287,32 @@ curl -X POST http://localhost/api/auth/login/ \
   }'
 ```
 
-### **Exemplo 3: Acessar Perfil (Com Token)**
+### **Exemplo 3: Recuperação de Senha**
+
+```bash
+# 1. Solicitar recuperação de senha
+curl -X POST http://localhost/api/auth/senha/recuperar/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "joana@example.com"
+  }'
+
+# Você receberá um código no email (em dev, aparece no console do Docker)
+
+# 2. Redefinir senha com código
+curl -X POST http://localhost/api/auth/senha/redefinir/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "joana@example.com",
+    "codigo": "654321",
+    "nova_senha": "NovaSenhaSegura456!",
+    "confirmar_senha": "NovaSenhaSegura456!"
+  }'
+
+# Resposta terá os tokens JWT (login automático após redefinir senha)
+```
+
+### **Exemplo 4: Acessar Perfil (Com Token)**
 
 ```bash
 # Primeiro, faça login e pegue o token access
@@ -340,6 +439,8 @@ Visualize os códigos gerados em:
 | **Iniciar cadastro** | POST `/api/auth/registro/iniciar/` | ❌ Pública |
 | **Confirmar cadastro** | POST `/api/auth/registro/confirmar/` | ❌ Pública |
 | **Login** | POST `/api/auth/login/` | ❌ Pública |
+| **Recuperar senha** | POST `/api/auth/senha/recuperar/` | ❌ Pública |
+| **Redefinir senha** | POST `/api/auth/senha/redefinir/` | ❌ Pública |
 | **Refresh token** | POST `/api/token/refresh/` | ❌ Pública |
 | **Ver perfil** | GET `/api/auth/perfil/` | ✅ JWT |
 | **Atualizar perfil** | PUT `/api/auth/perfil/atualizar/` | ✅ JWT |

@@ -297,3 +297,50 @@ class LoginComCodigoSerializer(serializers.Serializer):
             return attrs
         except Pessoa.DoesNotExist:
             raise serializers.ValidationError("Email ou senha inválidos")
+
+
+class SolicitarRecuperacaoSenhaSerializer(serializers.Serializer):
+    """
+    Serializer para solicitar recuperação de senha
+    """
+    email = serializers.EmailField(help_text="Email cadastrado na conta")
+    
+    def validate_email(self, value):
+        """Verifica se o email existe no sistema"""
+        if not Pessoa.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email não encontrado")
+        return value
+
+
+class RedefinirSenhaSerializer(serializers.Serializer):
+    """
+    Serializer para redefinir senha com código de verificação
+    """
+    email = serializers.EmailField(help_text="Email que recebeu o código")
+    codigo = serializers.CharField(
+        max_length=6,
+        min_length=6,
+        help_text="Código de 6 dígitos recebido por email"
+    )
+    nova_senha = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        help_text="Nova senha (mínimo 8 caracteres)"
+    )
+    confirmar_senha = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        help_text="Confirme a nova senha"
+    )
+    
+    def validate(self, attrs):
+        """Valida se as senhas coincidem"""
+        if attrs['nova_senha'] != attrs['confirmar_senha']:
+            raise serializers.ValidationError("As senhas não coincidem")
+        
+        # Validar força da senha (pelo menos 8 caracteres)
+        senha = attrs['nova_senha']
+        if len(senha) < 8:
+            raise serializers.ValidationError("A senha deve ter pelo menos 8 caracteres")
+        
+        return attrs

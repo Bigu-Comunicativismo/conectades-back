@@ -14,6 +14,8 @@ from .serializers import (
     LoginComCodigoSerializer,
     SolicitarCodigoSerializer,
     VerificarCodigoSerializer,
+    SolicitarRecuperacaoSenhaSerializer,
+    RedefinirSenhaSerializer,
     TipoUsuarioSerializer,
     GeneroSerializer,
     CategoriaInteresseSerializer,
@@ -362,6 +364,137 @@ def verificar_codigo_view(request):
         'message': 'Código verificado com sucesso',
         'email': email
     }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    operation_id='solicitar_recuperacao_senha',
+    summary='🔑 Solicitar Recuperação de Senha',
+    description='''
+    ETAPA 1 de 2: Solicita recuperação de senha.
+    
+    **Fluxo:**
+    1. Informe seu email cadastrado
+    2. Sistema verifica se o email existe
+    3. Código de 6 dígitos é enviado para o email
+    4. Use o código na próxima etapa (redefinir_senha)
+    
+    **ENDPOINT PÚBLICO** - não requer autenticação
+    ''',
+    tags=['Recuperação de Senha - Público'],
+    request=SolicitarRecuperacaoSenhaSerializer,
+    responses={
+        200: OpenApiResponse(description="Código enviado para o email"),
+        404: OpenApiResponse(description="Email não encontrado")
+    }
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def solicitar_recuperacao_senha(request):
+    """
+    ETAPA 1: Solicita recuperação de senha e envia código por email
+    ENDPOINT PÚBLICO - não requer autenticação
+    """
+    serializer = SolicitarRecuperacaoSenhaSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    email = serializer.validated_data['email']
+    
+    # Enviar código de verificação
+    sucesso, mensagem, codigo_obj = enviar_codigo_verificacao(email, tipo='recuperacao')
+    
+    if not sucesso:
+        return Response(
+            {'error': mensagem},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
+    return Response({
+        'message': 'Código de recuperação enviado para seu email',
+        'email': email,
+        'validade': '10 minutos',
+        'proximo_passo': 'Use o endpoint /api/auth/senha/redefinir/ com o código recebido'
+    }, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    operation_id='redefinir_senha',
+    summary='🔐 Redefinir Senha',
+    description='''
+    ETAPA 2 de 2: Redefine a senha com código de verificação.
+    
+    **Fluxo:**
+    1. Digite o código de 6 dígitos recebido no email
+    2. Digite a nova senha (mínimo 8 caracteres)
+    3. Confirme a nova senha
+    4. Sistema verifica o código e atualiza a senha
+    5. Retorna tokens JWT para login automático
+    
+    **ENDPOINT PÚBLICO** - não requer autenticação
+    ''',
+    tags=['Recuperação de Senha - Público'],
+    request=RedefinirSenhaSerializer,
+    responses={
+        200: OpenApiResponse(description="Senha redefinida com sucesso"),
+        400: OpenApiResponse(description="Código inválido ou senhas não coincidem")
+    }
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@transaction.atomic
+def redefinir_senha(request):
+    """
+    ETAPA 2: Verifica código e redefine a senha
+    ENDPOINT PÚBLICO - não requer autenticação
+    """
+    serializer = RedefinirSenhaSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    email = serializer.validated_data['email']
+    codigo = serializer.validated_data['codigo']
+    nova_senha = serializer.validated_data['nova_senha']
+    
+    # Verificar código
+    valido, mensagem, codigo_obj = verificar_codigo(email, codigo, tipo='recuperacao')
+    
+    if not valido:
+        return Response({'error': mensagem}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Buscar usuário pelo email
+        pessoa = Pessoa.objects.get(email=email)
+        
+        # Redefinir senha
+        pessoa.set_password(nova_senha)
+        pessoa.save()
+        
+        # Marcar código como usado
+        codigo_obj.marcar_como_usado()
+        
+        # Gerar tokens JWT para login automático
+        refresh = RefreshToken.for_user(pessoa)
+        
+        return Response({
+            'message': f'✅ Senha redefinida com sucesso! Você já está logada, {pessoa.nome_exibicao}!',
+            'user': PessoaSerializer(pessoa).data,
+            'tokens': {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }
+        }, status=status.HTTP_200_OK)
+    
+    except Pessoa.DoesNotExist:
+        return Response({
+            'error': 'Usuário não encontrado'
+        }, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response(
+            {'error': f'Erro ao redefinir senha: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 # ============== ENDPOINTS PROTEGIDOS (REQUEREM AUTENTICAÇÃO) ==============
