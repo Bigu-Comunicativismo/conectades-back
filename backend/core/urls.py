@@ -26,11 +26,15 @@ from rest_framework_simplejwt.views import (
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/cadastro/', include('backend.pessoas.urls')),
+    
+    # APIs Públicas (sem autenticação)
+    path('api/auth/', include('backend.pessoas.urls')),  # Mudou de /cadastro/ para /auth/
+    
+    # APIs Protegidas (requerem JWT)
     path('api/campanhas/', include('backend.campanhas.urls')),
     path('api/doacoes/', include('backend.doacoes.urls')),
 
-    # JWT endpoints
+    # JWT endpoints (mantidos para compatibilidade, mas use /api/auth/login/)
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 

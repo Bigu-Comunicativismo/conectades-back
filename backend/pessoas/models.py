@@ -2,7 +2,11 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import MinLengthValidator
 from django.utils.text import slugify
+from django.utils import timezone
+from datetime import timedelta
 import unicodedata
+import random
+import string
 
 class TipoUsuario(models.Model):
     """Tipos de usuário do sistema"""
@@ -336,3 +340,109 @@ class Pessoa(AbstractUser):
         if not self.localizacoes_interesse.exists():
             return "Nenhuma"
         return [localizacao.nome for localizacao in self.localizacoes_interesse.all()]
+
+
+class CodigoVerificacao(models.Model):
+    """
+    Modelo para armazenar códigos de verificação de email
+    Usado para autenticação de 2 fatores e verificação de cadastro
+    """
+    email = models.EmailField(
+        verbose_name="Email",
+        help_text="Email para o qual o código foi enviado"
+    )
+    codigo = models.CharField(
+        max_length=6,
+        verbose_name="Código",
+        help_text="Código de 6 dígitos gerado aleatoriamente"
+    )
+    tipo = models.CharField(
+        max_length=20,
+        choices=[
+            ('cadastro', 'Cadastro'),
+            ('login', 'Login'),
+            ('recuperacao', 'Recuperação de Senha')
+        ],
+        default='cadastro',
+        verbose_name="Tipo",
+        help_text="Finalidade do código"
+    )
+    usado = models.BooleanField(
+        default=False,
+        verbose_name="Usado",
+        help_text="Se o código já foi utilizado"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_expiracao = models.DateTimeField(
+        verbose_name="Data de Expiração",
+        help_text="Código expira após 10 minutos"
+    )
+    tentativas = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Tentativas",
+        help_text="Número de tentativas de verificação"
+    )
+    
+    class Meta:
+        verbose_name = "Código de Verificação"
+        verbose_name_plural = "Códigos de Verificação"
+        ordering = ['-data_criacao']
+        indexes = [
+            models.Index(fields=['email', 'codigo', 'usado']),
+            models.Index(fields=['data_expiracao']),
+        ]
+    
+    def __str__(self):
+        return f"{self.email} - {self.codigo} ({self.get_tipo_display()})"
+    
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            # Gerar código de 6 dígitos
+            self.codigo = ''.join(random.choices(string.digits, k=6))
+        if not self.data_expiracao:
+            # Código expira em 10 minutos
+            self.data_expiracao = timezone.now() + timedelta(minutes=10)
+        super().save(*args, **kwargs)
+    
+    def esta_valido(self):
+        """Verifica se o código ainda é válido"""
+        if self.usado:
+            return False, "Código já foi utilizado"
+        if timezone.now() > self.data_expiracao:
+            return False, "Código expirado. Solicite um novo código"
+        if self.tentativas >= 3:
+            return False, "Número máximo de tentativas excedido"
+        return True, "Código válido"
+    
+    def incrementar_tentativa(self):
+        """Incrementa o contador de tentativas"""
+        self.tentativas += 1
+        self.save(update_fields=['tentativas'])
+    
+    def marcar_como_usado(self):
+        """Marca o código como usado"""
+        self.usado = True
+        self.save(update_fields=['usado'])
+    
+    @classmethod
+    def limpar_codigos_expirados(cls):
+        """Remove códigos expirados (executar periodicamente)"""
+        limite = timezone.now() - timedelta(hours=24)
+        cls.objects.filter(data_criacao__lt=limite).delete()
+    
+    @classmethod
+    def gerar_codigo(cls, email, tipo='cadastro'):
+        """Gera um novo código para o email especificado"""
+        # Invalidar códigos anteriores do mesmo email e tipo
+        cls.objects.filter(
+            email=email,
+            tipo=tipo,
+            usado=False
+        ).update(usado=True)
+        
+        # Criar novo código
+        codigo = cls.objects.create(email=email, tipo=tipo)
+        return codigo
