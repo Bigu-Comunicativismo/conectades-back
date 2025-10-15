@@ -182,7 +182,27 @@ Ver guia completo em: **[TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)
 - **Testes com Insomnia/Postman**: [TESTES_INSOMNIA_POSTMAN.md](TESTES_INSOMNIA_POSTMAN.md)
 - **Performance e Otimizações**: [README_PERFORMANCE.md](README_PERFORMANCE.md)
 - **Arquitetura Detalhada**: [arquitetura.md](arquitetura.md)
+- **Integração com API do IBGE (Cidades e Bairros)**: [CIDADES_API.md](CIDADES_API.md)
 - **API Interativa**: http://localhost/api/docs/
+
+---
+
+## 🌍 Carregar Dados de Localidades
+
+Para carregar todas as localizações da Região Metropolitana do Recife:
+
+```bash
+# Carregar 15 cidades da RMR + 91 bairros de Recife (106 localizações)
+docker-compose exec web python backend/manage.py carregar_localizacoes_rmr
+
+# Ou recarregar (limpa dados antigos)
+docker-compose exec web python backend/manage.py carregar_localizacoes_rmr --limpar
+```
+
+**Dados incluídos:**
+- ✅ 15 cidades da Região Metropolitana do Recife
+- ✅ 91 bairros oficiais de Recife
+- ✅ Total: 106 localizações com códigos auto-gerados
 
 ---
 

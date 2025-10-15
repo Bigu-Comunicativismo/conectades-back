@@ -26,17 +26,33 @@ from .serializers import OrganizadoraSerializer, CampanhaSerializer
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def criar_campanha(request):
-    """API para criar campanha com organizadora preenchida automaticamente"""
+    """API para criar campanha. Apenas Doadoras podem criar campanhas."""
+    from backend.pessoas.models import TipoUsuario
+    
+    # Verificar se o usuário é uma Doadora
+    try:
+        tipo_doadora = TipoUsuario.objects.get(codigo='doadora')
+        
+        if request.user.tipo_usuario != tipo_doadora:
+            return Response({
+                'error': 'Apenas Doadoras podem criar campanhas!',
+                'tipo_usuario_atual': request.user.tipo_usuario.nome,
+                'tipo_necessario': 'Doadora'
+            }, status=status.HTTP_403_FORBIDDEN)
+    except Exception as e:
+        return Response({
+            'error': f'Erro ao verificar tipo de usuário: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
     data = request.data.copy()
     
-    # Preencher organizadora automaticamente com o usuário atual
-    try:
-        organizadora = Organizadora.objects.get(pessoa=request.user)
-        data['organizadora_id'] = organizadora.id
-    except Organizadora.DoesNotExist:
-        # Criar perfil de organizadora se não existir
-        organizadora = Organizadora.objects.create(pessoa=request.user)
-        data['organizadora_id'] = organizadora.id
+    # Criar ou obter perfil de organizadora automaticamente
+    organizadora, created = Organizadora.objects.get_or_create(
+        pessoa=request.user,
+        defaults={'ativo': True}
+    )
+    
+    data['organizadora_id'] = organizadora.id
     
     serializer = CampanhaSerializer(data=data)
     if serializer.is_valid():
@@ -49,9 +65,14 @@ def criar_campanha(request):
             f'campanhas_beneficiaria_{request.user.id}'
         ])
         
+        message = f'Campanha "{campanha.titulo}" criada com sucesso!'
+        if created:
+            message += ' 🎉 Você agora é uma Organizadora!'
+        
         return Response({
-            'message': f'Campanha "{campanha.titulo}" criada com sucesso!',
-            'data': CampanhaSerializer(campanha).data
+            'message': message,
+            'data': CampanhaSerializer(campanha).data,
+            'organizadora_criada': created
         }, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

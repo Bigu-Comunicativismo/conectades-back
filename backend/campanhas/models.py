@@ -11,7 +11,7 @@ class Organizadora(models.Model):
     ativo = models.BooleanField(default=True)
     
     def __str__(self):
-        return f"Organizadora: {self.pessoa.nome_alias or self.pessoa.nome or self.pessoa.username}"
+        return f"Organizadora: {self.pessoa.nome_social or self.pessoa.nome_completo or self.pessoa.username}"
 
 class Campanha(models.Model):
     titulo = models.CharField(max_length=200)
