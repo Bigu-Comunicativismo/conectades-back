@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
-from .models import Pessoa, TipoUsuario, Genero, CategoriaInteresse, LocalizacaoInteresse
+from .models import Pessoa, TipoUsuario, Genero, CategoriaInteresse, LocalizacaoInteresse, CodigoVerificacao
 
 
 @admin.register(TipoUsuario)
@@ -115,3 +115,45 @@ class PessoaAdmin(UserAdmin):
     def get_queryset(self, request):
         """Otimiza a consulta para evitar N+1 queries"""
         return super().get_queryset(request).select_related('tipo_usuario', 'genero').prefetch_related('categorias_interesse', 'localizacoes_interesse')
+
+
+@admin.register(CodigoVerificacao)
+class CodigoVerificacaoAdmin(admin.ModelAdmin):
+    list_display = ('email', 'codigo', 'tipo', 'usado', 'tentativas', 'data_criacao', 'data_expiracao', 'status_validade')
+    list_filter = ('tipo', 'usado', 'data_criacao')
+    search_fields = ('email', 'codigo')
+    readonly_fields = ('codigo', 'data_criacao', 'data_expiracao', 'status_validade')
+    date_hierarchy = 'data_criacao'
+    ordering = ('-data_criacao',)
+    
+    def status_validade(self, obj):
+        """Mostra status visual do código"""
+        valido, mensagem = obj.esta_valido()
+        if valido:
+            return format_html('<span style="color: green;">✓ Válido</span>')
+        return format_html(f'<span style="color: red;">✗ {mensagem}</span>')
+    status_validade.short_description = "Status"
+    
+    def has_add_permission(self, request):
+        """Códigos são gerados automaticamente, não manualmente"""
+        return False
+    
+    actions = ['marcar_como_usado', 'limpar_expirados']
+    
+    def marcar_como_usado(self, request, queryset):
+        """Marca códigos selecionados como usados"""
+        count = queryset.update(usado=True)
+        self.message_user(request, f'{count} código(s) marcado(s) como usado(s)')
+    marcar_como_usado.short_description = "Marcar como usado"
+    
+    def limpar_expirados(self, request, queryset):
+        """Remove códigos expirados"""
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        limite = timezone.now() - timedelta(hours=24)
+        count = CodigoVerificacao.objects.filter(data_criacao__lt=limite).count()
+        CodigoVerificacao.objects.filter(data_criacao__lt=limite).delete()
+        
+        self.message_user(request, f'{count} código(s) expirado(s) removido(s)')
+    limpar_expirados.short_description = "Limpar códigos expirados (>24h)"

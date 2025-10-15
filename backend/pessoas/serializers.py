@@ -156,3 +156,191 @@ class PessoaLoginSerializer(serializers.Serializer):
             return attrs
         else:
             raise serializers.ValidationError('Username e password são obrigatórios')
+
+
+# ========== NOVOS SERIALIZERS PARA AUTENTICAÇÃO COM CÓDIGO ===========
+
+class SolicitarCodigoSerializer(serializers.Serializer):
+    """Serializer para solicitar código de verificação"""
+    email = serializers.EmailField(help_text="Email para receber o código")
+    tipo = serializers.ChoiceField(
+        choices=['cadastro', 'login', 'recuperacao'],
+        default='cadastro',
+        help_text="Tipo do código: cadastro, login ou recuperacao"
+    )
+
+
+class VerificarCodigoSerializer(serializers.Serializer):
+    """Serializer para verificar código de verificação"""
+    email = serializers.EmailField(help_text="Email que recebeu o código")
+    codigo = serializers.CharField(
+        max_length=6,
+        min_length=6,
+        help_text="Código de 6 dígitos recebido por email"
+    )
+    tipo = serializers.ChoiceField(
+        choices=['cadastro', 'login', 'recuperacao'],
+        default='cadastro',
+        help_text="Tipo do código"
+    )
+
+
+class RegistroComCodigoSerializer(serializers.Serializer):
+    """
+    Serializer para registro de usuário (primeira etapa - sem código)
+    O código será enviado por email após validação inicial
+    """
+    # Dados obrigatórios para cadastro
+    email = serializers.EmailField(help_text="Email válido (receberá código de verificação)")
+    username = serializers.CharField(
+        min_length=3,
+        max_length=150,
+        help_text="Nome de usuário único (mínimo 3 caracteres)"
+    )
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        help_text="Senha forte (mínimo 8 caracteres)"
+    )
+    nome_completo = serializers.CharField(help_text="Nome completo")
+    cpf = serializers.CharField(help_text="CPF (formato: 000.000.000-00)")
+    telefone = serializers.CharField(help_text="Telefone com DDD")
+    
+    tipo_usuario = serializers.PrimaryKeyRelatedField(
+        queryset=TipoUsuario.objects.all(),
+        help_text="ID do tipo de usuário (1=Beneficiária, 2=Doadora)"
+    )
+    genero = serializers.PrimaryKeyRelatedField(
+        queryset=Genero.objects.all(),
+        help_text="ID do gênero"
+    )
+    
+    cidade = serializers.CharField(help_text="Cidade onde mora")
+    bairro = serializers.CharField(help_text="Bairro onde mora")
+    nome_social = serializers.CharField(help_text="Nome social (como prefere ser chamada)")
+    mini_bio = serializers.CharField(help_text="Mini biografia")
+    
+    # Campos opcionais
+    avatar = serializers.ImageField(required=False, help_text="Foto de perfil")
+    categorias_interesse = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=CategoriaInteresse.objects.all(),
+        required=False,
+        help_text="IDs das categorias de interesse"
+    )
+    localizacoes_interesse = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=LocalizacaoInteresse.objects.all(),
+        required=False,
+        help_text="IDs das localizações de interesse"
+    )
+    
+    def validate_email(self, value):
+        """Verifica se email já está em uso"""
+        if Pessoa.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Este email já está cadastrado")
+        return value
+    
+    def validate_username(self, value):
+        """Verifica se username já está em uso"""
+        if Pessoa.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Este nome de usuário já está em uso")
+        return value
+    
+    def validate_cpf(self, value):
+        """Valida formato do CPF"""
+        cpf_limpo = value.replace('.', '').replace('-', '')
+        if len(cpf_limpo) != 11 or not cpf_limpo.isdigit():
+            raise serializers.ValidationError("CPF inválido")
+        if Pessoa.objects.filter(cpf=value).exists():
+            raise serializers.ValidationError("Este CPF já está cadastrado")
+        return value
+
+
+class ConfirmarRegistroSerializer(serializers.Serializer):
+    """
+    Serializer para confirmar registro com código de verificação
+    """
+    email = serializers.EmailField(help_text="Email que recebeu o código")
+    codigo = serializers.CharField(
+        max_length=6,
+        min_length=6,
+        help_text="Código de 6 dígitos recebido por email"
+    )
+
+
+class LoginComCodigoSerializer(serializers.Serializer):
+    """
+    Serializer para login com email e senha
+    Retorna JWT tokens após verificação
+    """
+    email = serializers.EmailField(help_text="Email cadastrado")
+    password = serializers.CharField(
+        write_only=True,
+        help_text="Senha da conta"
+    )
+    
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+        
+        try:
+            pessoa = Pessoa.objects.get(email=email)
+            user = authenticate(username=pessoa.username, password=password)
+            
+            if not user:
+                raise serializers.ValidationError("Email ou senha inválidos")
+            if not user.is_active:
+                raise serializers.ValidationError("Conta inativa. Entre em contato com o suporte")
+            
+            attrs['user'] = user
+            return attrs
+        except Pessoa.DoesNotExist:
+            raise serializers.ValidationError("Email ou senha inválidos")
+
+
+class SolicitarRecuperacaoSenhaSerializer(serializers.Serializer):
+    """
+    Serializer para solicitar recuperação de senha
+    """
+    email = serializers.EmailField(help_text="Email cadastrado na conta")
+    
+    def validate_email(self, value):
+        """Verifica se o email existe no sistema"""
+        if not Pessoa.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email não encontrado")
+        return value
+
+
+class RedefinirSenhaSerializer(serializers.Serializer):
+    """
+    Serializer para redefinir senha com código de verificação
+    """
+    email = serializers.EmailField(help_text="Email que recebeu o código")
+    codigo = serializers.CharField(
+        max_length=6,
+        min_length=6,
+        help_text="Código de 6 dígitos recebido por email"
+    )
+    nova_senha = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        help_text="Nova senha (mínimo 8 caracteres)"
+    )
+    confirmar_senha = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        help_text="Confirme a nova senha"
+    )
+    
+    def validate(self, attrs):
+        """Valida se as senhas coincidem"""
+        if attrs['nova_senha'] != attrs['confirmar_senha']:
+            raise serializers.ValidationError("As senhas não coincidem")
+        
+        # Validar força da senha (pelo menos 8 caracteres)
+        senha = attrs['nova_senha']
+        if len(senha) < 8:
+            raise serializers.ValidationError("A senha deve ter pelo menos 8 caracteres")
+        
+        return attrs
