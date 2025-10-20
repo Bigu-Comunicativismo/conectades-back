@@ -149,7 +149,9 @@ class DoacaoAdmin(admin.ModelAdmin):
     
     def render_change_form(self, request, context, *args, **kwargs):
         """Adiciona JavaScript inline para filtrar itens por campanha"""
-        context['adminform'].form.fields['item_campanha'].help_text = '''
+        # Verificar se o campo item_campanha existe no formulário
+        if 'item_campanha' in context['adminform'].form.fields:
+            context['adminform'].form.fields['item_campanha'].help_text = '''
             <script type="text/javascript">
             (function() {
                 function initItemFilter() {
@@ -223,6 +225,7 @@ class DoacaoAdmin(admin.ModelAdmin):
             </script>
             Selecione o item da campanha que você está doando. Ao confirmar a doação, a quantidade do item será atualizada automaticamente.
         '''
+        
         return super().render_change_form(request, context, *args, **kwargs)
 
 
