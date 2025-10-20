@@ -1,6 +1,6 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
@@ -9,8 +9,8 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.db.models import Prefetch
 from django.conf import settings
-from .models import Organizadora, Campanha
-from .serializers import OrganizadoraSerializer, CampanhaSerializer
+from .models import Organizadora, Campanha, ItemCampanha
+from .serializers import OrganizadoraSerializer, CampanhaSerializer, ItemCampanhaSerializer
 
 @extend_schema(
     operation_id='criar_campanha',
@@ -26,18 +26,21 @@ from .serializers import OrganizadoraSerializer, CampanhaSerializer
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def criar_campanha(request):
-    """API para criar campanha. Apenas Doadoras podem criar campanhas."""
+    """API para criar campanha. Doadoras e Beneficiárias podem criar campanhas."""
     from backend.pessoas.models import TipoUsuario
     
-    # Verificar se o usuário é uma Doadora
+    # Verificar se o usuário é uma Doadora ou Beneficiária
     try:
         tipo_doadora = TipoUsuario.objects.get(codigo='doadora')
+        tipo_beneficiaria = TipoUsuario.objects.get(codigo='beneficiaria')
         
-        if request.user.tipo_usuario != tipo_doadora:
+        tipos_permitidos = [tipo_doadora, tipo_beneficiaria]
+        
+        if request.user.tipo_usuario not in tipos_permitidos:
             return Response({
-                'error': 'Apenas Doadoras podem criar campanhas!',
-                'tipo_usuario_atual': request.user.tipo_usuario.nome,
-                'tipo_necessario': 'Doadora'
+                'error': 'Apenas Doadoras e Beneficiárias podem criar campanhas!',
+                'tipo_usuario_atual': request.user.tipo_usuario.nome if request.user.tipo_usuario else 'Não definido',
+                'tipos_permitidos': ['Doadora', 'Beneficiária']
             }, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
         return Response({
@@ -61,8 +64,7 @@ def criar_campanha(request):
         # Invalidar cache de listagens
         cache.delete_many([
             'campanhas_all',
-            f'campanhas_user_{request.user.id}',
-            f'campanhas_beneficiaria_{request.user.id}'
+            f'campanhas_user_{request.user.id}'
         ])
         
         message = f'Campanha "{campanha.titulo}" criada com sucesso!'
@@ -87,7 +89,7 @@ def criar_campanha(request):
     }
 )
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 @cache_page(settings.CACHE_TTL)  # Cache por 1 hora
 def listar_campanhas(request):
     """API para listar campanhas com cache e otimizações"""
@@ -100,7 +102,7 @@ def listar_campanhas(request):
             'organizadora__pessoa',
             'beneficiaria'
         ).prefetch_related(
-            'doacoes'
+            'doacoes', 'itens'
         ).all()
         
         serializer = CampanhaSerializer(campanhas, many=True)
@@ -134,7 +136,7 @@ def minhas_campanhas(request):
                 'organizadora__pessoa',
                 'beneficiaria'
             ).prefetch_related(
-                'doacoes'
+                'doacoes', 'itens'
             ).filter(organizadora=organizadora)
             
             serializer = CampanhaSerializer(campanhas, many=True)
@@ -152,34 +154,19 @@ def minhas_campanhas(request):
     
     return Response(cached_data)
 
+
+
 @extend_schema(
-    operation_id='campanhas_beneficiaria',
-    summary='Campanhas como Beneficiária',
-    description='Lista as campanhas onde o usuário atual é beneficiária com cache.',
+    operation_id='listar_itens_campanha',
+    summary='Listar Itens de uma Campanha',
+    description='Lista todos os itens solicitados em uma campanha específica.',
     tags=['Campanhas'],
-    responses={
-        200: CampanhaSerializer(many=True),
-    }
+    responses={200: ItemCampanhaSerializer(many=True)}
 )
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def campanhas_beneficiaria(request):
-    """API para listar campanhas onde o usuário é beneficiária com cache"""
-    cache_key = f'campanhas_beneficiaria_{request.user.id}'
-    cached_data = cache.get(cache_key)
-    
-    if cached_data is None:
-        campanhas = Campanha.objects.select_related(
-            'organizadora__pessoa',
-            'beneficiaria'
-        ).prefetch_related(
-            'doacoes'
-        ).filter(beneficiaria=request.user)
-        
-        serializer = CampanhaSerializer(campanhas, many=True)
-        cached_data = serializer.data
-        
-        # Cache por 30 minutos
-        cache.set(cache_key, cached_data, settings.CACHE_TTL_USER)
-    
-    return Response(cached_data)
+@permission_classes([AllowAny])
+def listar_itens_campanha(request, campanha_id: int):
+    """Lista os itens de uma campanha"""
+    itens = ItemCampanha.objects.filter(campanha_id=campanha_id).order_by('nome')
+    serializer = ItemCampanhaSerializer(itens, many=True)
+    return Response(serializer.data)

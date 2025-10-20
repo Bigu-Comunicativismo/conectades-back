@@ -23,8 +23,13 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from .health_check import health_check, simple_health_check
 
 urlpatterns = [
+    # Health checks (para monitoramento e load balancers)
+    path('health/', health_check, name='health_check'),
+    path('ping/', simple_health_check, name='simple_health_check'),
+    
     path('admin/', admin.site.urls),
     
     # APIs Públicas (sem autenticação)
