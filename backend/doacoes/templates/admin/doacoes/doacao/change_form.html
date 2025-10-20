@@ -5,14 +5,36 @@
     {% if original.pk %}
         <h1>✏️ Editar Doação (Edição Limitada)</h1>
         <div class="help" style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 10px; margin: 10px 0; border-radius: 4px;">
-            <strong>ℹ️ Edição Limitada:</strong> Apenas os campos de <strong>status</strong>, <strong>data de entrega</strong> e <strong>observações</strong> podem ser modificados para manter a integridade dos dados da campanha.
+            <strong>ℹ️ Edição Limitada:</strong> Apenas alguns campos podem ser editados para manter a integridade dos dados da campanha.
             <br><br>
-            <strong>📋 Campos editáveis:</strong>
-            <ul style="margin: 5px 0 0 20px;">
-                <li>✅ <strong>Status</strong> - Pendente, Confirmada, Entregue ou Cancelada</li>
-                <li>✅ <strong>Data de Entrega</strong> - Quando a doação foi entregue</li>
-                <li>✅ <strong>Observações</strong> - Notas adicionais</li>
-            </ul>
+            {% if user.tipo_usuario.codigo == 'beneficiaria' %}
+                <strong>👩‍👧‍👦 Beneficiária:</strong> Você pode atualizar o status e a data de entrega das doações de suas campanhas.
+                <br><br>
+                <strong>📋 Campos editáveis:</strong>
+                <ul style="margin: 5px 0 0 20px;">
+                    <li>✅ <strong>Status</strong> - Pendente, Confirmada, Entregue ou Cancelada</li>
+                    <li>✅ <strong>Data de Entrega</strong> - Quando a doação foi entregue (apenas beneficiária)</li>
+                    <li>✅ <strong>Observações</strong> - Notas adicionais</li>
+                </ul>
+            {% elif user.tipo_usuario.codigo == 'doadora' %}
+                <strong>💝 Doadora:</strong> Você pode atualizar o status e observações de suas doações.
+                <br><br>
+                <strong>📋 Campos editáveis:</strong>
+                <ul style="margin: 5px 0 0 20px;">
+                    <li>✅ <strong>Status</strong> - Cancelar sua doação se necessário</li>
+                    <li>✅ <strong>Observações</strong> - Notas adicionais</li>
+                    <li>⚠️ <strong>Data de Entrega</strong> - Apenas a beneficiária pode editar</li>
+                </ul>
+            {% else %}
+                <strong>👨‍💼 Administrador:</strong> Você tem acesso completo para editar.
+                <br><br>
+                <strong>📋 Campos editáveis:</strong>
+                <ul style="margin: 5px 0 0 20px;">
+                    <li>✅ <strong>Status</strong> - Pendente, Confirmada, Entregue ou Cancelada</li>
+                    <li>✅ <strong>Data de Entrega</strong> - Quando a doação foi entregue</li>
+                    <li>✅ <strong>Observações</strong> - Notas adicionais</li>
+                </ul>
+            {% endif %}
             <br>
             <strong>🔄 Status disponíveis:</strong>
             <ul style="margin: 5px 0 0 20px;">

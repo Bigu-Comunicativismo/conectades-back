@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib import messages
-from .models import Organizadora, Campanha, Imagem, ItemCampanha, PostAtualizacao
+from .models import Organizadora, Campanha, Imagem, ItemCampanha, PostAtualizacao, SolicitacaoBeneficiaria
 
 # Organizadora NÃO aparece no admin - é criada automaticamente
 # quando uma Doadora cria sua primeira campanha
@@ -64,12 +64,12 @@ class PostAtualizacaoInline(admin.StackedInline):
 
 @admin.register(Campanha)
 class CampanhaAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'organizadora', 'get_beneficiaria', 'get_progresso_visual', 'get_total_itens', 'get_itens_completos', 'dias_restantes', 'ativa')
-    list_filter = ('data_inicio', 'prazo', 'organizadora__ativo', 'ativa')
+    list_display = ('titulo', 'organizadora', 'get_beneficiaria', 'get_status_publicacao_display', 'get_progresso_visual', 'get_total_itens', 'get_itens_completos', 'dias_restantes', 'ativa')
+    list_filter = ('publicada', 'beneficiaria_confirmada', 'data_inicio', 'prazo', 'organizadora__ativo', 'ativa')
     search_fields = ('titulo', 'descricao', 'organizadora__pessoa__nome_completo')
     date_hierarchy = 'data_inicio'
     inlines = [ItemCampanhaInline, PostAtualizacaoInline]
-    readonly_fields = ('get_percentual_atingido', 'get_status_campanha', 'dias_restantes')
+    readonly_fields = ('get_percentual_atingido', 'get_status_campanha', 'dias_restantes', 'get_status_publicacao_display', 'get_pode_publicar')
     
     fieldsets = (
         ('Informações Básicas', {
@@ -78,6 +78,10 @@ class CampanhaAdmin(admin.ModelAdmin):
         ('📊 Progresso da Campanha', {
             'fields': ('get_status_campanha', 'get_percentual_atingido'),
             'description': 'Progresso calculado automaticamente baseado nos itens abaixo'
+        }),
+        ('🚀 Publicação', {
+            'fields': ('get_status_publicacao_display', 'get_pode_publicar', 'publicada'),
+            'description': 'Campanha só pode ser publicada se a beneficiária confirmar (ou se não houver beneficiária)'
         }),
         ('Detalhes', {
             'fields': ('imagem', 'categorias', 'whatsapp', 'localizacao')
@@ -91,8 +95,13 @@ class CampanhaAdmin(admin.ModelAdmin):
     )
     
     def get_beneficiaria(self, obj):
-        """Retorna o nome da beneficiária"""
-        return obj.beneficiaria.nome_exibicao if obj.beneficiaria else '-'
+        """Retorna o nome da beneficiária com status de confirmação"""
+        if not obj.beneficiaria:
+            return '-'
+        if obj.beneficiaria_confirmada:
+            return f"✅ {obj.beneficiaria.nome_exibicao}"
+        else:
+            return f"⏳ {obj.beneficiaria.nome_exibicao} (aguardando confirmação)"
     get_beneficiaria.short_description = '👤 Beneficiária'
     get_beneficiaria.admin_order_field = 'beneficiaria__nome_completo'
     
@@ -122,6 +131,19 @@ class CampanhaAdmin(admin.ModelAdmin):
         status = obj.status_campanha
         return f"{status} {percentual:.0f}%"
     get_progresso_visual.short_description = '📊 Progresso'
+    
+    def get_status_publicacao_display(self, obj):
+        """Retorna o status de publicação"""
+        return obj.status_publicacao
+    get_status_publicacao_display.short_description = '🚀 Status Publicação'
+    
+    def get_pode_publicar(self, obj):
+        """Indica se a campanha pode ser publicada"""
+        if obj.pode_ser_publicada:
+            return "✅ Pode ser publicada"
+        else:
+            return "❌ Aguardando confirmação da beneficiária"
+    get_pode_publicar.short_description = 'Pode Publicar?'
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Filtra beneficiaria para mostrar apenas usuários do tipo beneficiária"""
@@ -168,6 +190,21 @@ class CampanhaAdmin(admin.ModelAdmin):
             
             obj.organizadora = organizadora
         
+        # Validar publicação
+        if obj.publicada and not obj.pode_ser_publicada:
+            messages.error(
+                request,
+                '❌ Esta campanha não pode ser publicada! A beneficiária ainda não confirmou a associação.'
+            )
+            obj.publicada = False
+        
+        # Mensagem de sucesso se campanha foi publicada
+        if change and 'publicada' in form.changed_data and obj.publicada:
+            messages.success(
+                request,
+                f'✅ Campanha "{obj.titulo}" publicada com sucesso! Agora ela está visível para doadores.'
+            )
+        
         super().save_model(request, obj, form, change)
     
     def get_form(self, request, obj=None, **kwargs):
@@ -192,3 +229,119 @@ class CampanhaAdmin(admin.ModelAdmin):
         if obj:  # Editando campanha existente
             return self.readonly_fields + ('organizadora',)
         return self.readonly_fields
+    
+    def has_change_permission(self, request, obj=None):
+        """Permite edição APENAS para a organizadora da campanha (nem admin pode editar)"""
+        if obj:  # Se está editando uma campanha existente
+            # Verificar se o usuário é a organizadora desta campanha
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                if obj.organizadora == organizadora:
+                    return True
+            except Organizadora.DoesNotExist:
+                pass
+            
+            # Nem admin pode editar campanhas de outras pessoas
+            return False
+        
+        # Permite criação de novas campanhas
+        return True
+    
+    def has_delete_permission(self, request, obj=None):
+        """Permite exclusão APENAS para a organizadora da campanha (nem admin)"""
+        if obj:  # Se está tentando deletar uma campanha existente
+            # Verificar se o usuário é a organizadora desta campanha
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                if obj.organizadora == organizadora:
+                    return True
+            except Organizadora.DoesNotExist:
+                pass
+            
+            # Nem admin pode deletar campanhas de outras pessoas
+            return False
+        
+        # Por padrão, permite verificar permissão de deleção
+        return True
+    
+    def get_queryset(self, request):
+        """Admin vê todas as campanhas, organizadoras veem apenas as suas"""
+        queryset = super().get_queryset(request).select_related('organizadora__pessoa', 'beneficiaria')
+        
+        # Superusers veem TODAS as campanhas (para supervisão)
+        if request.user.is_superuser:
+            return queryset
+        
+        # Organizadoras normais veem apenas suas próprias campanhas
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            return queryset.filter(organizadora=organizadora)
+        except Organizadora.DoesNotExist:
+            # Se não é organizadora ainda, retorna vazio
+            return queryset.none()
+    
+    def changelist_view(self, request, extra_context=None):
+        """Adiciona mensagem informativa sobre edição de campanhas"""
+        extra_context = extra_context or {}
+        extra_context['title'] = 'Campanhas'
+        
+        if request.user.is_superuser:
+            # Contar campanhas próprias vs total
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                minhas = Campanha.objects.filter(organizadora=organizadora).count()
+            except Organizadora.DoesNotExist:
+                minhas = 0
+            
+            total = Campanha.objects.count()
+            extra_context['subtitle'] = f'👨‍💼 Admin: Visualizando {total} campanhas (você criou {minhas}). Você só pode editar as campanhas que você criou.'
+        else:
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                total_campanhas = Campanha.objects.filter(organizadora=organizadora).count()
+                extra_context['subtitle'] = f'📋 Você tem {total_campanhas} campanha(s). Você só pode editar suas próprias campanhas.'
+            except Organizadora.DoesNotExist:
+                extra_context['subtitle'] = '💡 Crie sua primeira campanha para se tornar uma Organizadora!'
+        
+        return super().changelist_view(request, extra_context)
+
+
+@admin.register(SolicitacaoBeneficiaria)
+class SolicitacaoBeneficiariaAdmin(admin.ModelAdmin):
+    list_display = ('get_resumo', 'beneficiaria', 'organizadora', 'status_display_admin', 'data_criacao', 'data_resposta')
+    list_filter = ('status', 'data_criacao', 'data_resposta')
+    search_fields = ('campanha__titulo', 'beneficiaria__nome_completo', 'organizadora__pessoa__nome_completo')
+    date_hierarchy = 'data_criacao'
+    readonly_fields = ('campanha', 'beneficiaria', 'organizadora', 'data_criacao', 'data_resposta', 'status_display_admin')
+    
+    fieldsets = (
+        ('Informações da Solicitação', {
+            'fields': ('campanha', 'beneficiaria', 'organizadora', 'status', 'status_display_admin')
+        }),
+        ('Mensagens', {
+            'fields': ('mensagem_organizadora', 'mensagem_resposta')
+        }),
+        ('Datas', {
+            'fields': ('data_criacao', 'data_resposta')
+        }),
+    )
+    
+    def get_resumo(self, obj):
+        return f"{obj.campanha.titulo} → {obj.beneficiaria.nome_exibicao}"
+    get_resumo.short_description = 'Solicitação'
+    
+    def status_display_admin(self, obj):
+        return obj.status_display
+    status_display_admin.short_description = 'Status'
+    
+    def has_add_permission(self, request):
+        # Solicitações são criadas automaticamente
+        return False
+    
+    def has_change_permission(self, request, obj=None):
+        # Não permite edição manual - usar API
+        return False
+    
+    def has_delete_permission(self, request, obj=None):
+        # Permite apenas superuser deletar
+        return request.user.is_superuser

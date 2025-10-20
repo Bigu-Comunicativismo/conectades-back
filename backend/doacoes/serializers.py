@@ -2,6 +2,26 @@ from rest_framework import serializers
 from .models import TipoServico, Doacao, DoacaoIndependente
 
 
+class AtualizarStatusDoacaoSerializer(serializers.Serializer):
+    """Serializer para atualizar status de uma doação"""
+    status = serializers.ChoiceField(
+        choices=['pendente', 'confirmada', 'entregue', 'cancelada'],
+        required=False,
+        help_text="Novo status da doação"
+    )
+    data_entrega = serializers.DateField(
+        required=False,
+        allow_null=True,
+        help_text="Data de entrega da doação (apenas beneficiária pode alterar)"
+    )
+    observacoes = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        help_text="Observações sobre a doação"
+    )
+
+
 class TipoServicoSerializer(serializers.ModelSerializer):
     """Serializer para tipos de serviço"""
     
@@ -31,10 +51,10 @@ class DoacaoSerializer(serializers.ModelSerializer):
     descricao_completa = serializers.SerializerMethodField(read_only=True)
     
     def get_status_display(self, obj):
-        return obj.status_display()
+        return obj.status_display
     
     def get_descricao_completa(self, obj):
-        return obj.descricao_completa()
+        return obj.descricao_completa
 
     class Meta:
         model = Doacao

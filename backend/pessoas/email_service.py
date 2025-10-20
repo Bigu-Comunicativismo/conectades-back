@@ -137,3 +137,68 @@ def verificar_codigo(email, codigo, tipo='cadastro'):
     except Exception as e:
         return False, f"Erro ao verificar código: {str(e)}", None
 
+
+def enviar_notificacao_solicitacao_beneficiaria(solicitacao):
+    """
+    Envia email notificando a beneficiária sobre nova solicitação
+    
+    Args:
+        solicitacao: Objeto SolicitacaoBeneficiaria
+    
+    Returns:
+        tuple: (sucesso: bool, mensagem: str)
+    """
+    try:
+        beneficiaria = solicitacao.beneficiaria
+        campanha = solicitacao.campanha
+        organizadora = solicitacao.organizadora
+        
+        assunto = f'🎯 Nova Solicitação de Campanha - {campanha.titulo}'
+        
+        mensagem = f'''
+Olá, {beneficiaria.nome_exibicao}! 👋
+
+Você recebeu uma nova solicitação para ser beneficiária de uma campanha!
+
+📋 Campanha: {campanha.titulo}
+👤 Organizadora: {organizadora.pessoa.nome_exibicao}
+
+💬 Mensagem da Organizadora:
+{solicitacao.mensagem_organizadora}
+
+Para aceitar ou recusar esta solicitação:
+
+1. Acesse o aplicativo Conectades
+2. Vá em "Minhas Solicitações"
+3. Veja os detalhes da campanha
+4. Escolha "Aceitar" ou "Recusar"
+
+Ou use a API diretamente:
+GET {settings.SITE_URL}/api/campanhas/solicitacoes/minhas/
+
+⚠️ Esta solicitação ficará pendente até você responder.
+
+Ao aceitar, você será vinculada à campanha e poderá:
+• Receber doações destinadas à campanha
+• Confirmar o recebimento das doações
+• Acompanhar o progresso da campanha
+
+---
+Conectades - Conectando pessoas e oportunidades
+Região Metropolitana do Recife - PE
+        '''
+        
+        # Enviar email
+        send_mail(
+            subject=assunto,
+            message=mensagem,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[beneficiaria.email],
+            fail_silently=False,
+        )
+        
+        return True, f"Notificação enviada para {beneficiaria.email}"
+    
+    except Exception as e:
+        return False, f"Erro ao enviar notificação: {str(e)}"
+

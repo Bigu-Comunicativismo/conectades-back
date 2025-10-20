@@ -5,6 +5,10 @@ urlpatterns = [
     # Doações tradicionais
     path('criar/', views.criar_doacao, name='criar_doacao'),
     path('campanha/<int:campanha_id>/', views.listar_doacoes_por_campanha, name='listar_doacoes_por_campanha'),
+    path('minhas/', views.minhas_doacoes, name='minhas_doacoes'),  # Doações da doadora
+    path('minhas-campanhas/', views.doacoes_minhas_campanhas, name='doacoes_minhas_campanhas'),  # Doações recebidas pela beneficiária
+    path('<int:doacao_id>/', views.detalhar_doacao, name='detalhar_doacao'),
+    path('<int:doacao_id>/atualizar-status/', views.atualizar_status_doacao, name='atualizar_status_doacao'),
     
     # Tipos de Serviço (para Doações Independentes)
     path('tipos-servico/', views.listar_tipos_servico, name='listar_tipos_servico'),

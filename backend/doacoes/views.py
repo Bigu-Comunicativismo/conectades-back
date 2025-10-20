@@ -13,7 +13,8 @@ from backend.campanhas.models import Campanha
 from backend.pessoas.models import Pessoa
 from .serializers import (
     TipoServicoSerializer, DoacaoSerializer, 
-    DoacaoIndependenteSerializer, DoacaoIndependenteListSerializer
+    DoacaoIndependenteSerializer, DoacaoIndependenteListSerializer,
+    AtualizarStatusDoacaoSerializer
 )
 
 
@@ -57,7 +58,8 @@ def listar_doacoes_por_campanha(request, campanha_id: int):
     if cached_data is None:
         doacoes = Doacao.objects.select_related(
             'doador',
-            'campanha'
+            'campanha',
+            'item_campanha'
         ).filter(campanha_id=campanha_id)
         
         serializer = DoacaoSerializer(doacoes, many=True)
@@ -67,6 +69,158 @@ def listar_doacoes_por_campanha(request, campanha_id: int):
         cache.set(cache_key, cached_data, settings.CACHE_TTL_SHORT)
     
     return Response(cached_data)
+
+
+@extend_schema(
+    operation_id='minhas_doacoes',
+    summary='Minhas Doações (Doadora)',
+    description='Lista as doações criadas pelo usuário atual (doadora).',
+    tags=['Doações'],
+    responses={200: DoacaoSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def minhas_doacoes(request):
+    """Lista as doações do usuário atual (doadora)"""
+    doacoes = Doacao.objects.select_related(
+        'campanha',
+        'item_campanha',
+        'doador'
+    ).filter(doador=request.user).order_by('-data_doacao')
+    
+    serializer = DoacaoSerializer(doacoes, many=True)
+    return Response(serializer.data)
+
+
+@extend_schema(
+    operation_id='doacoes_minhas_campanhas',
+    summary='Doações das Minhas Campanhas (Beneficiária)',
+    description='Lista as doações das campanhas onde o usuário é beneficiária.',
+    tags=['Doações'],
+    responses={200: DoacaoSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def doacoes_minhas_campanhas(request):
+    """Lista as doações das campanhas onde o usuário é beneficiária"""
+    doacoes = Doacao.objects.select_related(
+        'campanha',
+        'item_campanha',
+        'doador'
+    ).filter(campanha__beneficiaria=request.user).order_by('-data_doacao')
+    
+    serializer = DoacaoSerializer(doacoes, many=True)
+    return Response(serializer.data)
+
+
+@extend_schema(
+    operation_id='atualizar_status_doacao',
+    summary='Atualizar Status de Doação',
+    description='Permite que doadora cancele suas doações ou beneficiária atualize status e data de entrega.',
+    tags=['Doações'],
+    request=AtualizarStatusDoacaoSerializer,
+    responses={200: DoacaoSerializer, 400: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
+)
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def atualizar_status_doacao(request, doacao_id: int):
+    """
+    Atualiza o status de uma doação.
+    - Doadora pode cancelar suas próprias doações
+    - Beneficiária pode atualizar status e data_entrega de doações de suas campanhas
+    """
+    try:
+        doacao = Doacao.objects.select_related('campanha', 'doador').get(id=doacao_id)
+        
+        # Verificar permissões
+        is_doadora = doacao.doador == request.user
+        is_beneficiaria = doacao.campanha.beneficiaria == request.user
+        is_admin = request.user.is_superuser
+        
+        if not (is_doadora or is_beneficiaria or is_admin):
+            return Response({
+                'erro': 'Você não tem permissão para editar esta doação'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Validar campos permitidos por tipo de usuário
+        novo_status = request.data.get('status')
+        nova_data_entrega = request.data.get('data_entrega')
+        novas_observacoes = request.data.get('observacoes')
+        
+        # Doadora pode apenas cancelar
+        if is_doadora and not is_admin:
+            if novo_status and novo_status != 'cancelada':
+                return Response({
+                    'erro': 'Doadora só pode cancelar suas doações'
+                }, status=status.HTTP_403_FORBIDDEN)
+            if nova_data_entrega:
+                return Response({
+                    'erro': 'Doadora não pode alterar a data de entrega'
+                }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Atualizar campos permitidos
+        if novo_status:
+            doacao.status = novo_status
+        
+        if nova_data_entrega and (is_beneficiaria or is_admin):
+            from datetime import datetime
+            doacao.data_entrega = datetime.fromisoformat(nova_data_entrega)
+        
+        if novas_observacoes is not None:
+            doacao.observacoes = novas_observacoes
+        
+        doacao.save()
+        
+        # Invalidar cache
+        cache.delete(f'doacoes_campanha_{doacao.campanha.id}')
+        
+        serializer = DoacaoSerializer(doacao)
+        return Response({
+            'mensagem': 'Doação atualizada com sucesso',
+            'doacao': serializer.data
+        })
+        
+    except Doacao.DoesNotExist:
+        return Response({
+            'erro': 'Doação não encontrada'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    operation_id='detalhar_doacao',
+    summary='Detalhar Doação',
+    description='Retorna detalhes de uma doação específica.',
+    tags=['Doações'],
+    responses={200: DoacaoSerializer, 404: OpenApiTypes.OBJECT}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def detalhar_doacao(request, doacao_id: int):
+    """Retorna detalhes de uma doação"""
+    try:
+        doacao = Doacao.objects.select_related(
+            'campanha',
+            'item_campanha',
+            'doador'
+        ).get(id=doacao_id)
+        
+        # Verificar permissões
+        is_doadora = doacao.doador == request.user
+        is_beneficiaria = doacao.campanha.beneficiaria == request.user
+        is_admin = request.user.is_superuser
+        
+        if not (is_doadora or is_beneficiaria or is_admin):
+            return Response({
+                'erro': 'Você não tem permissão para visualizar esta doação'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = DoacaoSerializer(doacao)
+        return Response(serializer.data)
+        
+    except Doacao.DoesNotExist:
+        return Response({
+            'erro': 'Doação não encontrada'
+        }, status=status.HTTP_404_NOT_FOUND)
 
 
 # ==================== TIPOS DE SERVIÇO ====================

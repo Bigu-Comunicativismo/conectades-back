@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils import timezone
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
 from backend.pessoas.models import Pessoa, CategoriaInteresse, LocalizacaoInteresse
 
 
@@ -180,6 +182,11 @@ class Campanha(models.Model):
         verbose_name="Beneficiária",
         help_text="Pessoa beneficiária desta campanha (opcional)"
     )
+    beneficiaria_confirmada = models.BooleanField(
+        default=False,
+        verbose_name="Beneficiária Confirmada",
+        help_text="Se a beneficiária aceitou ser associada a esta campanha"
+    )
     whatsapp = models.CharField(
         max_length=20,
         default="",
@@ -209,7 +216,12 @@ class Campanha(models.Model):
     ativa = models.BooleanField(
         default=True,
         verbose_name="Ativa",
-        help_text="Se a campanha está ativa"
+        help_text="Se a campanha está ativa e visível publicamente"
+    )
+    publicada = models.BooleanField(
+        default=False,
+        verbose_name="Publicada",
+        help_text="Se a campanha foi publicada e está visível para doadores. Só pode ser True se beneficiária confirmar OU se não houver beneficiária."
     )
 
     class Meta:
@@ -279,3 +291,206 @@ class Campanha(models.Model):
             return '🔵 Iniciada'
         else:
             return '⚪ Aguardando'
+    
+    @property
+    def pode_ser_publicada(self):
+        """Verifica se a campanha pode ser publicada"""
+        # Campanha sem beneficiária pode ser publicada
+        if not self.beneficiaria:
+            return True
+        
+        # Campanha com beneficiária só pode ser publicada se confirmada
+        return self.beneficiaria_confirmada
+    
+    @property
+    def status_publicacao(self):
+        """Retorna o status de publicação da campanha"""
+        if self.publicada:
+            return '✅ Publicada'
+        elif not self.beneficiaria:
+            return '⏳ Rascunho (sem beneficiária)'
+        elif self.beneficiaria_confirmada:
+            return '⏳ Pronta para publicar'
+        else:
+            return '⏳ Aguardando confirmação da beneficiária'
+    
+    def publicar(self):
+        """Publica a campanha se as condições forem atendidas"""
+        if self.pode_ser_publicada:
+            self.publicada = True
+            self.save(update_fields=['publicada'])
+            return True, "Campanha publicada com sucesso!"
+        else:
+            return False, "Campanha não pode ser publicada: beneficiária ainda não confirmou"
+    
+    def despublicar(self):
+        """Despublica a campanha"""
+        self.publicada = False
+        self.save(update_fields=['publicada'])
+        return True, "Campanha despublicada com sucesso!"
+
+
+class SolicitacaoBeneficiaria(models.Model):
+    """
+    Model para gerenciar solicitações de associação de beneficiárias a campanhas.
+    Quando uma organizadora adiciona uma beneficiária a uma campanha,
+    uma solicitação é criada e a beneficiária precisa aceitar ou recusar.
+    """
+    STATUS_CHOICES = [
+        ('pendente', 'Pendente'),
+        ('aceita', 'Aceita'),
+        ('recusada', 'Recusada'),
+    ]
+    
+    campanha = models.ForeignKey(
+        Campanha,
+        on_delete=models.CASCADE,
+        related_name='solicitacoes_beneficiaria',
+        verbose_name="Campanha",
+        help_text="Campanha para a qual a beneficiária foi indicada"
+    )
+    beneficiaria = models.ForeignKey(
+        Pessoa,
+        on_delete=models.CASCADE,
+        related_name='solicitacoes_campanha',
+        verbose_name="Beneficiária",
+        help_text="Pessoa que foi indicada como beneficiária"
+    )
+    organizadora = models.ForeignKey(
+        Organizadora,
+        on_delete=models.CASCADE,
+        related_name='solicitacoes_enviadas',
+        verbose_name="Organizadora",
+        help_text="Organizadora que criou a solicitação"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pendente',
+        verbose_name="Status",
+        help_text="Status da solicitação"
+    )
+    mensagem_organizadora = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Mensagem da Organizadora",
+        help_text="Mensagem da organizadora explicando por que a beneficiária foi escolhida"
+    )
+    mensagem_resposta = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Mensagem de Resposta",
+        help_text="Mensagem da beneficiária ao aceitar ou recusar"
+    )
+    data_criacao = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Data de Criação"
+    )
+    data_resposta = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Data de Resposta",
+        help_text="Data em que a beneficiária respondeu à solicitação"
+    )
+    
+    class Meta:
+        verbose_name = "Solicitação de Beneficiária"
+        verbose_name_plural = "Solicitações de Beneficiária"
+        ordering = ['-data_criacao']
+        # Apenas uma solicitação pendente por campanha-beneficiária
+        unique_together = [['campanha', 'beneficiaria']]
+    
+    def __str__(self):
+        return f"{self.campanha.titulo} → {self.beneficiaria.nome_exibicao} ({self.status})"
+    
+    @property
+    def status_display(self):
+        """Retorna status com emoji"""
+        emojis = {
+            'pendente': '⏳',
+            'aceita': '✅',
+            'recusada': '❌'
+        }
+        return f"{emojis.get(self.status, '❓')} {self.get_status_display()}"
+    
+    def aceitar(self, mensagem=""):
+        """Aceita a solicitação e confirma a beneficiária na campanha"""
+        self.status = 'aceita'
+        self.mensagem_resposta = mensagem
+        self.data_resposta = timezone.now()
+        self.save()
+        
+        # Confirmar a beneficiária na campanha
+        self.campanha.beneficiaria_confirmada = True
+        self.campanha.save(update_fields=['beneficiaria_confirmada'])
+        
+        # Agora a campanha pode ser publicada
+        # A organizadora pode publicá-la manualmente ou podemos publicar automaticamente
+        # Por enquanto, apenas marcamos como pronta para publicação
+    
+    def recusar(self, mensagem=""):
+        """Recusa a solicitação e remove a beneficiária da campanha"""
+        self.status = 'recusada'
+        self.mensagem_resposta = mensagem
+        self.data_resposta = timezone.now()
+        self.save()
+        
+        # Remover a beneficiária da campanha
+        self.campanha.beneficiaria = None
+        self.campanha.beneficiaria_confirmada = False
+        self.campanha.save(update_fields=['beneficiaria', 'beneficiaria_confirmada'])
+
+
+# ==================== SINAIS DJANGO ====================
+
+@receiver(post_save, sender=Campanha)
+def criar_solicitacao_beneficiaria(sender, instance, created, **kwargs):
+    """
+    Cria uma solicitação quando uma beneficiária é adicionada a uma campanha.
+    Envia email de notificação para a beneficiária.
+    """
+    # Não processar se é uma nova campanha ou se não há beneficiária
+    if not instance.beneficiaria:
+        return
+    
+    # Verificar se a beneficiária mudou (comparando com o estado anterior)
+    if not created:
+        try:
+            campanha_anterior = Campanha.objects.get(pk=instance.pk)
+            # Se a beneficiária não mudou, não fazer nada
+            if campanha_anterior.beneficiaria == instance.beneficiaria:
+                return
+        except Campanha.DoesNotExist:
+            pass
+    
+    # Verificar se já existe uma solicitação pendente
+    solicitacao_existente = SolicitacaoBeneficiaria.objects.filter(
+        campanha=instance,
+        beneficiaria=instance.beneficiaria,
+        status='pendente'
+    ).first()
+    
+    if not solicitacao_existente:
+        # Criar nova solicitação
+        solicitacao = SolicitacaoBeneficiaria.objects.create(
+            campanha=instance,
+            beneficiaria=instance.beneficiaria,
+            organizadora=instance.organizadora,
+            mensagem_organizadora=f"A organizadora {instance.organizadora.pessoa.nome_exibicao} gostaria de associar você como beneficiária da campanha '{instance.titulo}'."
+        )
+        
+        # Marcar campanha como não confirmada
+        if instance.beneficiaria_confirmada:
+            instance.beneficiaria_confirmada = False
+            instance.save(update_fields=['beneficiaria_confirmada'])
+        
+        # Enviar email de notificação
+        try:
+            from backend.pessoas.email_service import enviar_notificacao_solicitacao_beneficiaria
+            sucesso, mensagem = enviar_notificacao_solicitacao_beneficiaria(solicitacao)
+            if sucesso:
+                print(f"✅ {mensagem}")
+            else:
+                print(f"⚠️ {mensagem}")
+        except Exception as e:
+            print(f"❌ Erro ao enviar notificação por email: {e}")

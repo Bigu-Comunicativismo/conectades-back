@@ -11,18 +11,36 @@ class DoacaoForm(forms.ModelForm):
         fields = '__all__'
     
     def __init__(self, *args, **kwargs):
+        # Extrair o request se foi passado (via get_form no admin)
+        self.request = kwargs.pop('request', None)
         super().__init__(*args, **kwargs)
+        
         # Se é uma nova doação, tornar item_campanha opcional
         if not self.instance.pk:
             self.fields['item_campanha'].required = False
             self.fields['item_campanha'].queryset = self.fields['item_campanha'].queryset.none()
         else:
+            # Determinar tipo de usuário para definir campos editáveis
+            campos_editaveis = ['status', 'observacoes']
+            
+            # Beneficiária pode editar data_entrega
+            if self.request and hasattr(self.request.user, 'tipo_usuario') and self.request.user.tipo_usuario:
+                if self.request.user.tipo_usuario.codigo == 'beneficiaria':
+                    campos_editaveis.append('data_entrega')
+            
+            # Superuser pode editar data_entrega
+            if self.request and self.request.user.is_superuser:
+                campos_editaveis.append('data_entrega')
+            
             # Se é edição, tornar todos os campos read-only exceto os permitidos
             for field_name, field in self.fields.items():
-                if field_name not in ['status', 'data_entrega', 'observacoes']:
+                if field_name not in campos_editaveis:
                     field.widget.attrs['readonly'] = True
                     field.widget.attrs['disabled'] = True
-                    field.help_text = '⚠️ Este campo não pode ser editado após a criação da doação'
+                    if field_name == 'data_entrega':
+                        field.help_text = '⚠️ Este campo só pode ser editado pela beneficiária da campanha'
+                    else:
+                        field.help_text = '⚠️ Este campo não pode ser editado após a criação da doação'
     
     def clean(self):
         cleaned_data = super().clean()
@@ -120,8 +138,16 @@ class DoacaoAdmin(admin.ModelAdmin):
     get_item_campanha.short_description = 'Item Contribuído'
     
     def get_form(self, request, obj=None, **kwargs):
-        """Retorna o formulário customizado"""
-        return super().get_form(request, obj, **kwargs)
+        """Retorna o formulário customizado, passando o request para controle de permissões"""
+        form = super().get_form(request, obj, **kwargs)
+        
+        # Criar uma subclasse do formulário que inclui o request
+        class FormWithRequest(form):
+            def __new__(cls, *args, **kwargs):
+                kwargs['request'] = request
+                return form(*args, **kwargs)
+        
+        return FormWithRequest
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         """Filtra itens baseado na campanha"""
@@ -160,6 +186,10 @@ class DoacaoAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """Filtra doações baseado no tipo de usuário"""
         queryset = super().get_queryset(request).select_related('doador', 'campanha', 'item_campanha')
+        
+        # Superusers veem todas as doações
+        if request.user.is_superuser:
+            return queryset
         
         # Verificar se o usuário tem tipo_usuario
         if hasattr(request.user, 'tipo_usuario') and request.user.tipo_usuario:
