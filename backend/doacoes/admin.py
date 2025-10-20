@@ -17,7 +17,7 @@ class DoacaoForm(forms.ModelForm):
             self.fields['item_campanha'].required = False
             self.fields['item_campanha'].queryset = self.fields['item_campanha'].queryset.none()
         else:
-            # Se é edição, tornar todos os campos read-only
+            # Se é edição, tornar todos os campos read-only exceto os permitidos
             for field_name, field in self.fields.items():
                 if field_name not in ['status', 'data_entrega', 'observacoes']:
                     field.widget.attrs['readonly'] = True
@@ -57,9 +57,22 @@ class DoacaoAdmin(admin.ModelAdmin):
     readonly_fields = ('data_doacao', 'descricao_completa', 'doador')
     
     def has_change_permission(self, request, obj=None):
-        """Permite edição limitada de doações existentes"""
+        """Permite edição baseada no tipo de usuário"""
         if obj:  # Se está editando uma doação existente
-            return True  # Permite edição limitada (apenas status, data_entrega, observacoes)
+            # Verificar se o usuário tem tipo_usuario
+            if hasattr(request.user, 'tipo_usuario') and request.user.tipo_usuario:
+                if request.user.tipo_usuario.codigo == 'beneficiaria':
+                    # Beneficiária só pode editar doações de suas campanhas
+                    if obj.campanha and obj.campanha.beneficiaria == request.user:
+                        return True
+                    return False
+                elif request.user.tipo_usuario.codigo == 'doadora':
+                    # Doadora pode editar suas próprias doações (para cancelar)
+                    if obj.doador == request.user:
+                        return True
+                    return False
+            # Admin ou outros tipos podem editar
+            return True
         return True  # Permite criação de novas doações
     
     def has_delete_permission(self, request, obj=None):
@@ -145,7 +158,19 @@ class DoacaoAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('doador', 'campanha', 'item_campanha')
+        """Filtra doações baseado no tipo de usuário"""
+        queryset = super().get_queryset(request).select_related('doador', 'campanha', 'item_campanha')
+        
+        # Verificar se o usuário tem tipo_usuario
+        if hasattr(request.user, 'tipo_usuario') and request.user.tipo_usuario:
+            if request.user.tipo_usuario.codigo == 'beneficiaria':
+                # Beneficiária só vê doações de suas campanhas
+                queryset = queryset.filter(campanha__beneficiaria=request.user)
+            elif request.user.tipo_usuario.codigo == 'doadora':
+                # Doadora só vê suas próprias doações
+                queryset = queryset.filter(doador=request.user)
+        
+        return queryset
     
     def render_change_form(self, request, context, *args, **kwargs):
         """Adiciona JavaScript inline para filtrar itens por campanha"""
