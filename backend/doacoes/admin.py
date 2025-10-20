@@ -90,7 +90,7 @@ class DoacaoAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
     
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('doador', 'campanha', 'tipo', 'item_campanha')
+        return super().get_queryset(request).select_related('doador', 'campanha', 'item_campanha')
     
     def render_change_form(self, request, context, *args, **kwargs):
         """Adiciona JavaScript inline para filtrar itens por campanha"""
