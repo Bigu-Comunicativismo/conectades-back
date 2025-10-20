@@ -111,9 +111,9 @@ class DoacaoAdmin(admin.ModelAdmin):
         form = super().get_form(request, obj, **kwargs)
         
         # Se está editando uma doação existente
-        if obj and obj.campanha:
+        if obj and obj.campanha and 'item_campanha' in form.fields:
             from backend.campanhas.models import ItemCampanha
-            form.base_fields['item_campanha'].queryset = ItemCampanha.objects.filter(
+            form.fields['item_campanha'].queryset = ItemCampanha.objects.filter(
                 campanha=obj.campanha
             )
         
