@@ -1,5 +1,36 @@
 from django.contrib import admin
+from django import forms
 from .models import TipoServico, Doacao, DoacaoIndependente
+
+
+class DoacaoForm(forms.ModelForm):
+    """Formulário customizado para Doacao que permite item_campanha vazio durante criação"""
+    
+    class Meta:
+        model = Doacao
+        fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Se é uma nova doação, tornar item_campanha opcional
+        if not self.instance.pk:
+            self.fields['item_campanha'].required = False
+            self.fields['item_campanha'].queryset = self.fields['item_campanha'].queryset.none()
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        campanha = cleaned_data.get('campanha')
+        item_campanha = cleaned_data.get('item_campanha')
+        
+        # Se item_campanha foi selecionado, verificar se pertence à campanha
+        if item_campanha and campanha:
+            if item_campanha.campanha != campanha:
+                raise forms.ValidationError({
+                    'item_campanha': 'O item selecionado não pertence à campanha escolhida.'
+                })
+        
+        return cleaned_data
+
 
 @admin.register(TipoServico)
 class TipoServicoAdmin(admin.ModelAdmin):
@@ -11,6 +42,7 @@ class TipoServicoAdmin(admin.ModelAdmin):
 
 @admin.register(Doacao)
 class DoacaoAdmin(admin.ModelAdmin):
+    form = DoacaoForm
     list_display = ('get_descricao', 'doador', 'campanha', 'get_item_campanha', 'quantidade', 'unidade', 'status', 'data_doacao')
     list_filter = ('status', 'campanha', 'data_doacao', 'data_entrega')
     search_fields = ('doador__nome_completo', 'campanha__titulo', 'item_campanha__nome')
@@ -58,13 +90,6 @@ class DoacaoAdmin(admin.ModelAdmin):
             form.base_fields['item_campanha'].queryset = ItemCampanha.objects.filter(
                 campanha=obj.campanha
             )
-        # Se está criando (obj é None), não mostrar nenhum item inicialmente
-        # O JavaScript vai popular depois que selecionar a campanha
-        elif not obj:
-            from backend.campanhas.models import ItemCampanha
-            form.base_fields['item_campanha'].queryset = ItemCampanha.objects.none()
-            form.base_fields['item_campanha'].required = False
-            form.base_fields['item_campanha'].help_text = '⚠️ Primeiro selecione uma campanha acima'
         
         return form
     
