@@ -16,6 +16,13 @@ class DoacaoForm(forms.ModelForm):
         if not self.instance.pk:
             self.fields['item_campanha'].required = False
             self.fields['item_campanha'].queryset = self.fields['item_campanha'].queryset.none()
+        else:
+            # Se é edição, tornar todos os campos read-only
+            for field_name, field in self.fields.items():
+                if field_name not in ['status', 'data_entrega', 'observacoes']:
+                    field.widget.attrs['readonly'] = True
+                    field.widget.attrs['disabled'] = True
+                    field.help_text = '⚠️ Este campo não pode ser editado após a criação da doação'
     
     def clean(self):
         cleaned_data = super().clean()
@@ -48,6 +55,25 @@ class DoacaoAdmin(admin.ModelAdmin):
     search_fields = ('doador__nome_completo', 'campanha__titulo', 'item_campanha__nome')
     date_hierarchy = 'data_doacao'
     readonly_fields = ('data_doacao', 'descricao_completa', 'doador')
+    
+    def has_change_permission(self, request, obj=None):
+        """Permite apenas visualização de doações existentes"""
+        if obj:  # Se está editando uma doação existente
+            return False  # Não permite edição
+        return True  # Permite criação de novas doações
+    
+    def has_delete_permission(self, request, obj=None):
+        """Permite apenas visualização de doações existentes"""
+        if obj:  # Se está tentando deletar uma doação existente
+            return False  # Não permite exclusão
+        return True  # Permite criação de novas doações
+    
+    def changelist_view(self, request, extra_context=None):
+        """Adiciona mensagem informativa sobre edição de doações"""
+        extra_context = extra_context or {}
+        extra_context['title'] = 'Doações (Somente Visualização)'
+        extra_context['subtitle'] = '⚠️ As doações não podem ser editadas após serem criadas para manter a integridade dos dados da campanha'
+        return super().changelist_view(request, extra_context)
     
     fieldsets = (
         ('Informações Básicas', {
