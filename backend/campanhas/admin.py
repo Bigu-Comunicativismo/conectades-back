@@ -28,6 +28,56 @@ class ItemCampanhaAdmin(admin.ModelAdmin):
         """Exibe o percentual formatado"""
         return f"{obj.percentual_atingido:.1f}%"
     percentual_atingido.short_description = '% Atingido'
+    
+    def has_change_permission(self, request, obj=None):
+        """Permite edição APENAS para a organizadora da campanha (nem admin pode editar)"""
+        if obj:  # Se está editando um item existente
+            # Verificar se o usuário é a organizadora da campanha deste item
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                if obj.campanha.organizadora == organizadora:
+                    return True
+            except Organizadora.DoesNotExist:
+                pass
+            
+            # Nem admin pode editar itens de campanhas de outras pessoas
+            return False
+        
+        # Permite criação de novos itens
+        return True
+    
+    def has_delete_permission(self, request, obj=None):
+        """Permite exclusão APENAS para a organizadora da campanha (nem admin)"""
+        if obj:  # Se está tentando deletar um item existente
+            # Verificar se o usuário é a organizadora da campanha deste item
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                if obj.campanha.organizadora == organizadora:
+                    return True
+            except Organizadora.DoesNotExist:
+                pass
+            
+            # Nem admin pode deletar itens de campanhas de outras pessoas
+            return False
+        
+        # Por padrão, permite verificar permissão de deleção
+        return True
+    
+    def get_queryset(self, request):
+        """Admin vê todos os itens, organizadoras veem apenas os seus"""
+        queryset = super().get_queryset(request).select_related('campanha__organizadora__pessoa')
+        
+        # Superusers veem TODOS os itens (supervisão)
+        if request.user.is_superuser:
+            return queryset
+        
+        # Organizadoras normais veem apenas itens de suas campanhas
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            return queryset.filter(campanha__organizadora=organizadora)
+        except Organizadora.DoesNotExist:
+            # Se não é organizadora ainda, retorna vazio
+            return queryset.none()
 
 @admin.register(PostAtualizacao)
 class PostAtualizacaoAdmin(admin.ModelAdmin):
@@ -40,6 +90,56 @@ class PostAtualizacaoAdmin(admin.ModelAdmin):
         """Retorna resumo da mensagem"""
         return obj.mensagem[:100] + '...' if len(obj.mensagem) > 100 else obj.mensagem
     get_resumo.short_description = 'Mensagem'
+    
+    def has_change_permission(self, request, obj=None):
+        """Permite edição APENAS para a organizadora da campanha (nem admin pode editar)"""
+        if obj:  # Se está editando um post existente
+            # Verificar se o usuário é a organizadora da campanha deste post
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                if obj.campanha.organizadora == organizadora:
+                    return True
+            except Organizadora.DoesNotExist:
+                pass
+            
+            # Nem admin pode editar posts de campanhas de outras pessoas
+            return False
+        
+        # Permite criação de novos posts
+        return True
+    
+    def has_delete_permission(self, request, obj=None):
+        """Permite exclusão APENAS para a organizadora da campanha (nem admin)"""
+        if obj:  # Se está tentando deletar um post existente
+            # Verificar se o usuário é a organizadora da campanha deste post
+            try:
+                organizadora = Organizadora.objects.get(pessoa=request.user)
+                if obj.campanha.organizadora == organizadora:
+                    return True
+            except Organizadora.DoesNotExist:
+                pass
+            
+            # Nem admin pode deletar posts de campanhas de outras pessoas
+            return False
+        
+        # Por padrão, permite verificar permissão de deleção
+        return True
+    
+    def get_queryset(self, request):
+        """Admin vê todos os posts, organizadoras veem apenas os seus"""
+        queryset = super().get_queryset(request).select_related('campanha__organizadora__pessoa')
+        
+        # Superusers veem TODOS os posts (supervisão)
+        if request.user.is_superuser:
+            return queryset
+        
+        # Organizadoras normais veem apenas posts de suas campanhas
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            return queryset.filter(campanha__organizadora=organizadora)
+        except Organizadora.DoesNotExist:
+            # Se não é organizadora ainda, retorna vazio
+            return queryset.none()
 
 
 # Inline para mostrar itens dentro da campanha

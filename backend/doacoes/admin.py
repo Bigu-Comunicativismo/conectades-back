@@ -327,8 +327,56 @@ class DoacaoIndependenteAdmin(admin.ModelAdmin):
             obj.doadora = request.user
         super().save_model(request, obj, form, change)
     
+    def has_change_permission(self, request, obj=None):
+        """Permite edição APENAS para a doadora que criou (nem admin pode editar)"""
+        if obj:  # Se está editando uma doação independente existente
+            # Apenas a doadora que criou pode editar
+            if obj.doadora == request.user:
+                return True
+            # Nem admin pode editar doações de outras pessoas
+            return False
+        
+        # Permite criação de novas doações
+        return True
+    
+    def has_delete_permission(self, request, obj=None):
+        """Permite exclusão APENAS para a doadora que criou (nem admin)"""
+        if obj:  # Se está tentando deletar uma doação independente existente
+            # Apenas a doadora que criou pode deletar
+            if obj.doadora == request.user:
+                return True
+            # Nem admin pode deletar doações de outras pessoas
+            return False
+        
+        # Por padrão, permite verificar permissão de deleção
+        return True
+    
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('doadora', 'localizacao')
+        """Admin vê todas as doações independentes, doadoras veem apenas as suas"""
+        queryset = super().get_queryset(request).select_related('doadora', 'localizacao')
+        
+        # Superusers veem TODAS as doações independentes (supervisão)
+        if request.user.is_superuser:
+            return queryset
+        
+        # Doadoras normais veem apenas suas próprias doações
+        return queryset.filter(doadora=request.user)
+    
+    def changelist_view(self, request, extra_context=None):
+        """Adiciona mensagem informativa sobre edição de doações independentes"""
+        extra_context = extra_context or {}
+        extra_context['title'] = 'Doações Independentes'
+        
+        if request.user.is_superuser:
+            # Contar doações próprias vs total
+            minhas = DoacaoIndependente.objects.filter(doadora=request.user).count()
+            total = DoacaoIndependente.objects.count()
+            extra_context['subtitle'] = f'👨‍💼 Admin: Visualizando {total} doações independentes (você criou {minhas}). Você só pode editar as que você criou.'
+        else:
+            minhas = DoacaoIndependente.objects.filter(doadora=request.user).count()
+            extra_context['subtitle'] = f'💝 Você tem {minhas} doação(ões) independente(s). Você só pode editar suas próprias doações.'
+        
+        return super().changelist_view(request, extra_context)
     
     def frequencia_display(self, obj):
         return obj.frequencia_display
