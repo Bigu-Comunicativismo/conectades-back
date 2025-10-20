@@ -63,6 +63,7 @@ class DoacaoAdmin(admin.ModelAdmin):
         elif not obj:
             from backend.campanhas.models import ItemCampanha
             form.base_fields['item_campanha'].queryset = ItemCampanha.objects.none()
+            form.base_fields['item_campanha'].required = False
             form.base_fields['item_campanha'].help_text = '⚠️ Primeiro selecione uma campanha acima'
         
         return form
@@ -97,11 +98,15 @@ class DoacaoAdmin(admin.ModelAdmin):
         context['adminform'].form.fields['item_campanha'].help_text = '''
             <script type="text/javascript">
             (function() {
-                document.addEventListener('DOMContentLoaded', function() {
+                function initItemFilter() {
                     const campanhaField = document.getElementById('id_campanha');
                     const itemField = document.getElementById('id_item_campanha');
                     
-                    if (!campanhaField || !itemField) return;
+                    if (!campanhaField || !itemField) {
+                        console.log('⚠️ Campos não encontrados, tentando novamente...');
+                        setTimeout(initItemFilter, 100);
+                        return;
+                    }
                     
                     console.log('🔧 Filtro de itens carregado');
                     
@@ -147,6 +152,7 @@ class DoacaoAdmin(admin.ModelAdmin):
                         updateItems();
                     });
                     
+                    // Carregar itens se já há uma campanha selecionada
                     if (campanhaField.value) {
                         console.log('🔄 Carregando itens da campanha inicial');
                         updateItems();
@@ -154,7 +160,11 @@ class DoacaoAdmin(admin.ModelAdmin):
                         itemField.innerHTML = '<option value="">⚠️ Selecione uma campanha primeiro</option>';
                         itemField.disabled = true;
                     }
-                });
+                }
+                
+                // Tentar inicializar imediatamente e também no DOMContentLoaded
+                initItemFilter();
+                document.addEventListener('DOMContentLoaded', initItemFilter);
             })();
             </script>
             Selecione o item da campanha que você está doando. Ao confirmar a doação, a quantidade do item será atualizada automaticamente.
