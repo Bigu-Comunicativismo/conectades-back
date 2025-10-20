@@ -3,9 +3,24 @@
 
 {% block content_title %}
     {% if original.pk %}
-        <h1>👁️ Visualizar Doação (Somente Leitura)</h1>
-        <div class="help" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 4px;">
-            <strong>⚠️ Esta doação não pode ser editada!</strong> Apenas os campos de status, data de entrega e observações podem ser modificados para manter a integridade dos dados da campanha.
+        <h1>✏️ Editar Doação (Edição Limitada)</h1>
+        <div class="help" style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 10px; margin: 10px 0; border-radius: 4px;">
+            <strong>ℹ️ Edição Limitada:</strong> Apenas os campos de <strong>status</strong>, <strong>data de entrega</strong> e <strong>observações</strong> podem ser modificados para manter a integridade dos dados da campanha.
+            <br><br>
+            <strong>📋 Campos editáveis:</strong>
+            <ul style="margin: 5px 0 0 20px;">
+                <li>✅ <strong>Status</strong> - Para marcar como confirmada/entregue</li>
+                <li>✅ <strong>Data de Entrega</strong> - Quando a doação foi entregue</li>
+                <li>✅ <strong>Observações</strong> - Notas adicionais</li>
+            </ul>
+            <br>
+            <strong>🚫 Campos bloqueados:</strong>
+            <ul style="margin: 5px 0 0 20px;">
+                <li>❌ <strong>Campanha</strong> - Não pode ser alterada</li>
+                <li>❌ <strong>Item da Campanha</strong> - Não pode ser alterado</li>
+                <li>❌ <strong>Quantidade</strong> - Não pode ser alterada</li>
+                <li>❌ <strong>Doador</strong> - Não pode ser alterado</li>
+            </ul>
         </div>
     {% else %}
         <h1>➕ Adicionar Doação</h1>

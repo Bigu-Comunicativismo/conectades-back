@@ -2,20 +2,21 @@
 {% load i18n admin_urls static admin_list %}
 
 {% block content_title %}
-    <h1>📦 Doações (Somente Visualização)</h1>
-    <div class="help" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; margin: 10px 0; border-radius: 4px;">
-        <strong>⚠️ Importante:</strong> As doações não podem ser editadas ou excluídas após serem criadas para manter a integridade dos dados da campanha e o progresso correto.
+    <h1>📦 Doações (Edição Limitada)</h1>
+    <div class="help" style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 10px; margin: 10px 0; border-radius: 4px;">
+        <strong>ℹ️ Edição Limitada:</strong> As doações podem ser editadas de forma limitada para manter a integridade dos dados da campanha e o progresso correto.
         <br><br>
         <strong>📋 O que você pode fazer:</strong>
         <ul style="margin: 5px 0 0 20px;">
             <li>✅ <strong>Criar</strong> novas doações</li>
+            <li>✏️ <strong>Editar</strong> status, data de entrega e observações</li>
             <li>👁️ <strong>Visualizar</strong> doações existentes</li>
             <li>🔍 <strong>Filtrar</strong> e <strong>buscar</strong> doações</li>
         </ul>
         <br>
         <strong>🚫 O que não é permitido:</strong>
         <ul style="margin: 5px 0 0 20px;">
-            <li>❌ <strong>Editar</strong> doações existentes (campanha, item, quantidade, etc.)</li>
+            <li>❌ <strong>Alterar</strong> campanha, item, quantidade ou doador</li>
             <li>❌ <strong>Excluir</strong> doações existentes</li>
         </ul>
     </div>

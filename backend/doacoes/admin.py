@@ -57,9 +57,9 @@ class DoacaoAdmin(admin.ModelAdmin):
     readonly_fields = ('data_doacao', 'descricao_completa', 'doador')
     
     def has_change_permission(self, request, obj=None):
-        """Permite apenas visualização de doações existentes"""
+        """Permite edição limitada de doações existentes"""
         if obj:  # Se está editando uma doação existente
-            return False  # Não permite edição
+            return True  # Permite edição limitada (apenas status, data_entrega, observacoes)
         return True  # Permite criação de novas doações
     
     def has_delete_permission(self, request, obj=None):
