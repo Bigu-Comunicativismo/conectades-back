@@ -107,30 +107,33 @@ class DoacaoAdmin(admin.ModelAdmin):
     get_item_campanha.short_description = 'Item Contribuído'
     
     def get_form(self, request, obj=None, **kwargs):
-        """Customiza o form para filtrar itens baseado na campanha"""
-        form = super().get_form(request, obj, **kwargs)
-        
-        # Se está editando uma doação existente
-        if obj and obj.campanha and 'item_campanha' in form.fields:
-            from backend.campanhas.models import ItemCampanha
-            form.fields['item_campanha'].queryset = ItemCampanha.objects.filter(
-                campanha=obj.campanha
-            )
-        
-        return form
+        """Retorna o formulário customizado"""
+        return super().get_form(request, obj, **kwargs)
     
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        """Filtra itens baseado na campanha - complementa get_form"""
+        """Filtra itens baseado na campanha"""
         if db_field.name == "item_campanha":
+            from backend.campanhas.models import ItemCampanha
+            
             # Tentar pegar campanha_id do POST (quando form é submetido)
             campanha_id = request.POST.get('campanha') if request.method == 'POST' else None
             
+            # Se não tem campanha_id no POST, tentar pegar da URL (edição)
+            if not campanha_id and request.resolver_match:
+                try:
+                    object_id = request.resolver_match.kwargs.get('object_id')
+                    if object_id:
+                        from backend.doacoes.models import Doacao
+                        doacao = Doacao.objects.get(id=object_id)
+                        if doacao.campanha:
+                            campanha_id = doacao.campanha.id
+                except (Doacao.DoesNotExist, ValueError):
+                    pass
+            
             if campanha_id:
-                from backend.campanhas.models import ItemCampanha
                 kwargs["queryset"] = ItemCampanha.objects.filter(campanha_id=campanha_id)
-            elif 'queryset' not in kwargs:
-                # Se não foi definido no get_form, não mostrar nada
-                from backend.campanhas.models import ItemCampanha
+            else:
+                # Se não tem campanha selecionada, não mostrar nada
                 kwargs["queryset"] = ItemCampanha.objects.none()
         
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
