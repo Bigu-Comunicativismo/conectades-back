@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils import timezone
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 from backend.pessoas.models import Pessoa, CategoriaInteresse, LocalizacaoInteresse
 from backend.campanhas.models import Imagem, Organizadora
 
@@ -190,21 +192,46 @@ class Doacao(models.Model):
     def save(self, *args, **kwargs):
         """
         Atualiza automaticamente a quantidade contribuída do item da campanha
-        quando a doação é confirmada ou entregue
+        quando o status da doação muda
         """
         is_new = self.pk is None
+        old_doacao = None
         
-        if self.item_campanha and self.status in ['confirmada', 'entregue']:
-            if is_new:
-                # Nova doação confirmada/entregue: incrementar
+        if not is_new:
+            # Buscar estado anterior da doação
+            try:
+                old_doacao = Doacao.objects.get(pk=self.pk)
+            except Doacao.DoesNotExist:
+                old_doacao = None
+        
+        if self.item_campanha:
+            # Status que contam como contribuição
+            status_contribuicao = ['confirmada', 'entregue']
+            
+            # Verificar se deve incrementar (nova doação confirmada/entregue)
+            if is_new and self.status in status_contribuicao:
                 self.item_campanha.quantidade_contribuida += self.quantidade
                 self.item_campanha.save(update_fields=['quantidade_contribuida'])
-            else:
-                # Verificar se status mudou para confirmada/entregue
-                old_doacao = Doacao.objects.filter(pk=self.pk).first()
-                if old_doacao and old_doacao.status not in ['confirmada', 'entregue']:
-                    # Status mudou para confirmada/entregue: incrementar
+            
+            # Verificar mudanças de status em doações existentes
+            elif old_doacao and old_doacao.status != self.status:
+                old_status_contribuia = old_doacao.status in status_contribuicao
+                new_status_contribui = self.status in status_contribuicao
+                
+                if not old_status_contribuia and new_status_contribui:
+                    # Status mudou para contribuição: incrementar
                     self.item_campanha.quantidade_contribuida += self.quantidade
+                    self.item_campanha.save(update_fields=['quantidade_contribuida'])
+                
+                elif old_status_contribuia and not new_status_contribui:
+                    # Status mudou de contribuição para não-contribuição: decrementar
+                    self.item_campanha.quantidade_contribuida = max(0, self.item_campanha.quantidade_contribuida - self.quantidade)
+                    self.item_campanha.save(update_fields=['quantidade_contribuida'])
+                
+                elif old_status_contribuia and new_status_contribui and old_doacao.quantidade != self.quantidade:
+                    # Quantidade mudou em doação já confirmada: ajustar diferença
+                    diferenca = self.quantidade - old_doacao.quantidade
+                    self.item_campanha.quantidade_contribuida = max(0, self.item_campanha.quantidade_contribuida + diferenca)
                     self.item_campanha.save(update_fields=['quantidade_contribuida'])
         
         super().save(*args, **kwargs)
@@ -457,3 +484,27 @@ class DoacaoIndependente(models.Model):
         """Incrementa contador de agendamentos realizados"""
         self.agendamentos_realizados += 1
         self.save(update_fields=['agendamentos_realizados'])
+
+
+# ==================== SINAIS DJANGO ====================
+
+@receiver(post_save, sender=Doacao)
+def atualizar_progresso_campanha_doacao(sender, instance, created, **kwargs):
+    """
+    Atualiza o progresso da campanha quando uma doação é salva
+    """
+    if instance.item_campanha and instance.item_campanha.campanha:
+        campanha = instance.item_campanha.campanha
+        # Força o recálculo do percentual_atingido
+        campanha.save(update_fields=[])  # Salva sem campos específicos para forçar recálculo
+
+
+@receiver(post_delete, sender=Doacao)
+def atualizar_progresso_campanha_doacao_delete(sender, instance, **kwargs):
+    """
+    Atualiza o progresso da campanha quando uma doação é deletada
+    """
+    if instance.item_campanha and instance.item_campanha.campanha:
+        campanha = instance.item_campanha.campanha
+        # Força o recálculo do percentual_atingido
+        campanha.save(update_fields=[])
