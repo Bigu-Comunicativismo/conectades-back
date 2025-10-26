@@ -13,14 +13,15 @@ def populate_initial_data(apps, schema_editor):
     # Criar tipos de usuário (apenas Beneficiária e Doadora)
     # Organizadora é uma Doadora que tem perfil de organizadora
     tipos_usuario = [
-        {'nome': 'Beneficiária', 'ordem': 1},
-        {'nome': 'Doadora', 'ordem': 2},
+        {'nome': 'Beneficiária', 'codigo': 'beneficiaria', 'ordem': 1},
+        {'nome': 'Doadora', 'codigo': 'doadora', 'ordem': 2},
     ]
     
     for tipo in tipos_usuario:
         TipoUsuario.objects.get_or_create(
-            nome=tipo['nome'],
+            codigo=tipo['codigo'],  # Usar codigo como chave única
             defaults={
+                'nome': tipo['nome'],
                 'ordem': tipo['ordem'],
                 'ativo': True
             }
