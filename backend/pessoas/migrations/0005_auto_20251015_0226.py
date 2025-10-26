@@ -42,9 +42,15 @@ def populate_initial_data(apps, schema_editor):
     ]
     
     for genero in generos:
+        # Gerar código a partir do nome (slugify)
+        import unicodedata
+        from django.utils.text import slugify
+        codigo = slugify(unicodedata.normalize('NFKD', genero['nome']).encode('ascii', 'ignore').decode('ascii'))[:50]
+        
         Genero.objects.get_or_create(
-            nome=genero['nome'],
+            codigo=codigo,
             defaults={
+                'nome': genero['nome'],
                 'ordem': genero['ordem'],
                 'ativo': True
             }
@@ -66,9 +72,15 @@ def populate_initial_data(apps, schema_editor):
     ]
     
     for categoria in categorias:
+        # Gerar código a partir do nome (slugify)
+        import unicodedata
+        from django.utils.text import slugify
+        codigo = slugify(unicodedata.normalize('NFKD', categoria['nome']).encode('ascii', 'ignore').decode('ascii'))[:50]
+        
         CategoriaInteresse.objects.get_or_create(
-            nome=categoria['nome'],
+            codigo=codigo,
             defaults={
+                'nome': categoria['nome'],
                 'ordem': categoria['ordem'],
                 'ativo': True
             }
@@ -88,12 +100,18 @@ def populate_initial_data(apps, schema_editor):
     ]
     
     for localizacao in localizacoes:
-        # Código simplificado será gerado automaticamente no save() do modelo
+        # Gerar código a partir do nome e tipo
+        import unicodedata
+        from django.utils.text import slugify
+        codigo_base = slugify(unicodedata.normalize('NFKD', localizacao['nome']).encode('ascii', 'ignore').decode('ascii'))
+        codigo = f"{codigo_base}-{localizacao['tipo']}"[:50]
+        
         LocalizacaoInteresse.objects.get_or_create(
-            nome=localizacao['nome'],
-            tipo=localizacao['tipo'],
-            cidade=localizacao['cidade'],
+            codigo=codigo,
             defaults={
+                'nome': localizacao['nome'],
+                'tipo': localizacao['tipo'],
+                'cidade': localizacao['cidade'],
                 'estado': 'PE',
                 'ordem': localizacao['ordem'],
                 'ativo': True
