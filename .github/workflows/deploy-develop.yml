@@ -60,6 +60,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://admin_conectades:conectaZ0Z6@@localhost:5432/conectades_test
           DJANGO_SETTINGS_MODULE: backend.core.settings
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
           python manage.py migrate --noinput
@@ -68,6 +69,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://admin_conectades:conectaZ0Z6@@localhost:5432/conectades_test
           DJANGO_SETTINGS_MODULE: backend.core.settings
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           cd backend
           python manage.py test
