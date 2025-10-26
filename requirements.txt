@@ -5,6 +5,7 @@ psycopg2-binary
 drf_spectacular
 pillow
 dj-database-url
+requests
 # Redis e servidor ASGI para alta performance
 django-redis>=5.4.0
 uvicorn[standard]>=0.24.0
