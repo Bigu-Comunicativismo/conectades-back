@@ -170,6 +170,7 @@ class CampanhaAdmin(admin.ModelAdmin):
     date_hierarchy = 'data_inicio'
     inlines = [ItemCampanhaInline, PostAtualizacaoInline]
     readonly_fields = ('get_percentual_atingido', 'get_status_campanha', 'dias_restantes', 'get_status_publicacao_display', 'get_pode_publicar')
+    filter_horizontal = ('categorias',)
     
     fieldsets = (
         ('Informações Básicas', {
