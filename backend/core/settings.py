@@ -56,7 +56,7 @@ SECRET_KEY = 'django-insecure-(kap@lv%9gg@5nv-28(ry3f@*5j(b_1t@)d!nq1)$gpt^xka*g
 DEBUG = True
 
 # Permitir acesso via Nginx (localhost) e direto (porta 8000)
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]", "web", "nginx"]
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -111,17 +111,15 @@ WSGI_APPLICATION = 'backend.core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+import os
+import dj_database_url
+
+# Usar DATABASE_URL se disponível (para CI/CD), senão usar configuração padrão
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "conectades",
-        "USER": "admin_conectades",
-        "PASSWORD": "conectaZ0Z6@",
-        "HOST": "db",  # nome do serviço do banco no docker-compose
-        "PORT": 5432,   # porta interna do container
-        # Manter conexões abertas (pool gerenciado pelo Django)
-        "CONN_MAX_AGE": 600,
-    }
+    "default": dj_database_url.config(
+        default=f"postgresql://admin_conectades:conectaZ0Z6%40@{os.getenv('DB_HOST', 'db')}:5432/conectades",
+        conn_max_age=600,
+    )
 }
 
 # Redis Cache Configuration
