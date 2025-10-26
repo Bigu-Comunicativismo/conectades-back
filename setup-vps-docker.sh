@@ -102,8 +102,36 @@ if ! command -v docker &> /dev/null; then
     sudo usermod -aG docker $USER
     
     log_ok "Docker instalado"
+    log_warn "⚠️  IMPORTANTE: Usuário adicionado ao grupo docker"
+    log_warn "   As permissões serão aplicadas após próximo login"
+    
+    DOCKER_NEEDS_SUDO=true
 else
     log_info "Docker já instalado ($(docker --version))"
+    
+    # Verificar se usuário está no grupo docker
+    if ! groups | grep -q docker; then
+        log_warn "Adicionando usuário ao grupo docker..."
+        sudo usermod -aG docker $USER
+        DOCKER_NEEDS_SUDO=true
+    else
+        # Testar se pode usar docker sem sudo
+        if ! docker ps &> /dev/null; then
+            DOCKER_NEEDS_SUDO=true
+        else
+            DOCKER_NEEDS_SUDO=false
+        fi
+    fi
+fi
+
+# Definir comando docker baseado em permissões
+if [ "$DOCKER_NEEDS_SUDO" = true ]; then
+    log_info "Docker será executado com sudo (permissões ainda não aplicadas)"
+    DOCKER_CMD="sudo docker"
+    DOCKER_COMPOSE_CMD="sudo docker compose"
+else
+    DOCKER_CMD="docker"
+    DOCKER_COMPOSE_CMD="docker compose"
 fi
 
 # Verificar se docker-compose está disponível
@@ -161,8 +189,6 @@ fi
 log_step "ETAPA 4/6: Configurando Docker Compose DEV"
 
 cat > /var/www/conectades-dev/docker-compose.yml << 'EOF'
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
@@ -220,8 +246,6 @@ log_ok "docker-compose.yml DEV criado"
 log_step "ETAPA 5/6: Configurando Docker Compose PROD"
 
 cat > /var/www/conectades-prod/docker-compose.yml << 'EOF'
-version: '3.8'
-
 services:
   db:
     image: postgres:15-alpine
@@ -280,14 +304,14 @@ log_step "ETAPA 6/6: Iniciando Containers"
 
 log_info "Buildando e iniciando DEV..."
 cd /var/www/conectades-dev
-docker compose build
-docker compose up -d
+$DOCKER_COMPOSE_CMD build
+$DOCKER_COMPOSE_CMD up -d
 log_ok "Containers DEV iniciados"
 
 log_info "Buildando e iniciando PROD..."
 cd /var/www/conectades-prod
-docker compose build
-docker compose up -d
+$DOCKER_COMPOSE_CMD build
+$DOCKER_COMPOSE_CMD up -d
 log_ok "Containers PROD iniciados"
 
 # Aguardar containers subirem
@@ -343,10 +367,10 @@ echo -e "${G}🐳 CONTAINERS RODANDO${NC}"
 echo -e "${C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${B}DEV:${NC}"
-docker ps --filter "name=conectades-dev" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+$DOCKER_CMD ps --filter "name=conectades-dev" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo ""
 echo -e "${B}PROD:${NC}"
-docker ps --filter "name=conectades-prod" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+$DOCKER_CMD ps --filter "name=conectades-prod" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 echo -e "\n${C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${G}🌐 ACESSAR APLICAÇÕES${NC}"
