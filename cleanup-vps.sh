@@ -250,6 +250,7 @@ echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     if [ -f ~/.ssh/github_deploy_key ]; then
         log_info "Fazendo backup da chave SSH..."
+        mkdir -p ~/backups
         cp ~/.ssh/github_deploy_key ~/backups/github_deploy_key_backup_$(date +%Y%m%d_%H%M%S)
         cp ~/.ssh/github_deploy_key.pub ~/backups/github_deploy_key_pub_backup_$(date +%Y%m%d_%H%M%S)
         
@@ -284,6 +285,7 @@ echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     if [ -f ~/.conectades_credentials ]; then
         log_info "Fazendo backup das credenciais..."
+        mkdir -p ~/backups
         cp ~/.conectades_credentials ~/backups/conectades_credentials_backup_$(date +%Y%m%d_%H%M%S)
         rm -f ~/.conectades_credentials
         log_ok "Credenciais removidas (backup em ~/backups/)"
