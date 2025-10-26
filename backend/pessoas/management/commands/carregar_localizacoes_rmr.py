@@ -51,6 +51,37 @@ class Command(BaseCommand):
         'Sítio Wanderley', 'Soledade', 'Sucupira', 'Tamarineira', 'Tejipió',
         'Torre', 'Torreão', 'Torrões', 'Várzea', 'Vasco da Gama', 'Zumbi',
     ]
+    
+    # Bairros de Olinda
+    BAIRROS_OLINDA = [
+        'Águas Compridas', 'Alto da Bondade', 'Alto da Conquista', 'Amaro Branco',
+        'Bairro Novo', 'Barbalho', 'Bonsucesso', 'Bultrins',
+        'Caixa d\'Água', 'Campo do São Bento', 'Capunga', 'Carmo',
+        'Casa Caiada', 'Cidade Tabajara', 'Fragoso', 'Guadalupe',
+        'Jardim Atlântico', 'Monte', 'Mouraria', 'Ouro Preto',
+        'Passarinho', 'Peixinhos', 'Prado', 'Quadramares',
+        'Rio Doce', 'Santa Tereza', 'Santana', 'São Benedito',
+        'Salgadinho', 'Socorro', 'Tabajaras', 'Varadouro', 'Vila Popular',
+    ]
+    
+    # Bairros de Jaboatão dos Guararapes
+    BAIRROS_JABOATAO = [
+        'Barra de Jangada', 'Behengue', 'Candeias', 'Cavaleiro',
+        'Comportas', 'Curado', 'Engenho Velho', 'Floriano',
+        'Guararapes', 'Jardim Jordão', 'Jardim Piedade', 'Manoel Belo',
+        'Marcos Freire', 'Muribeca', 'Prazeres', 'Piedade',
+        'Porta Larga', 'Praias de Piedade', 'Santa Luzia', 'Santo Aleixo',
+        'Severiano Moraes Filho', 'Socorro', 'Sucupira', 'Zumbi',
+    ]
+    
+    # Bairros de São Lourenço da Mata
+    BAIRROS_SAO_LOURENCO = [
+        'Caetés I', 'Caetés II', 'Caetés III', 'Centro',
+        'Engenho Tapado', 'Jardim Brasil', 'Jardim Marrocos',
+        'Laranjeiras', 'Matias de Albuquerque', 'Monteiro',
+        'Passarinho', 'Pitanga', 'Pixete', 'Quinta do Maracujá',
+        'Salgadinho', 'São João', 'Tiúma', 'Vila Romana',
+    ]
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -98,29 +129,38 @@ class Command(BaseCommand):
         # Carregar bairros
         if not options['apenas_cidades']:
             if options['limpar']:
-                LocalizacaoInteresse.objects.filter(tipo='bairro', cidade='Recife').delete()
+                LocalizacaoInteresse.objects.filter(tipo='bairro').delete()
             
-            self.stdout.write('🏘️  Carregando bairros de Recife...')
-            # Remover duplicatas e ordenar
-            bairros_unicos = sorted(set(self.BAIRROS_RECIFE))
+            # Carregar bairros de cada cidade
+            bairros_por_cidade = [
+                ('Recife', self.BAIRROS_RECIFE),
+                ('Olinda', self.BAIRROS_OLINDA),
+                ('Jaboatão dos Guararapes', self.BAIRROS_JABOATAO),
+                ('São Lourenço da Mata', self.BAIRROS_SAO_LOURENCO),
+            ]
             
-            for ordem, bairro in enumerate(bairros_unicos, start=1):
-                obj, created = LocalizacaoInteresse.objects.get_or_create(
-                    nome=bairro,
-                    tipo='bairro',
-                    cidade='Recife',
-                    defaults={
-                        'estado': 'PE',
-                        'ordem': ordem,
-                        'ativo': True,
-                    }
-                )
-                if created:
-                    bairros_criados += 1
+            for cidade, bairros in bairros_por_cidade:
+                self.stdout.write(f'🏘️  Carregando bairros de {cidade}...')
+                # Remover duplicatas e ordenar
+                bairros_unicos = sorted(set(bairros))
+                
+                for ordem, bairro in enumerate(bairros_unicos, start=1):
+                    obj, created = LocalizacaoInteresse.objects.get_or_create(
+                        nome=bairro,
+                        tipo='bairro',
+                        cidade=cidade,
+                        defaults={
+                            'estado': 'PE',
+                            'ordem': ordem,
+                            'ativo': True,
+                        }
+                    )
+                    if created:
+                        bairros_criados += 1
 
         # Resumo
         total_cidades = LocalizacaoInteresse.objects.filter(tipo='cidade', estado='PE').count()
-        total_bairros = LocalizacaoInteresse.objects.filter(tipo='bairro', cidade='Recife').count()
+        total_bairros = LocalizacaoInteresse.objects.filter(tipo='bairro', estado='PE').count()
         
         self.stdout.write(self.style.SUCCESS('\n📊 Resumo:'))
         self.stdout.write(f'  ✅ Cidades criadas: {cidades_criadas}')

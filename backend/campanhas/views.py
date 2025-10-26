@@ -1,6 +1,6 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
@@ -9,8 +9,9 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.db.models import Prefetch
 from django.conf import settings
-from .models import Organizadora, Campanha
-from .serializers import OrganizadoraSerializer, CampanhaSerializer
+from .models import Organizadora, Campanha, ItemCampanha, SolicitacaoBeneficiaria
+from .serializers import OrganizadoraSerializer, CampanhaSerializer, ItemCampanhaSerializer
+from .serializers_solicitacao import SolicitacaoRespostaSerializer
 
 @extend_schema(
     operation_id='criar_campanha',
@@ -26,18 +27,21 @@ from .serializers import OrganizadoraSerializer, CampanhaSerializer
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def criar_campanha(request):
-    """API para criar campanha. Apenas Doadoras podem criar campanhas."""
+    """API para criar campanha. Doadoras e Beneficiárias podem criar campanhas."""
     from backend.pessoas.models import TipoUsuario
     
-    # Verificar se o usuário é uma Doadora
+    # Verificar se o usuário é uma Doadora ou Beneficiária
     try:
         tipo_doadora = TipoUsuario.objects.get(codigo='doadora')
+        tipo_beneficiaria = TipoUsuario.objects.get(codigo='beneficiaria')
         
-        if request.user.tipo_usuario != tipo_doadora:
+        tipos_permitidos = [tipo_doadora, tipo_beneficiaria]
+        
+        if request.user.tipo_usuario not in tipos_permitidos:
             return Response({
-                'error': 'Apenas Doadoras podem criar campanhas!',
-                'tipo_usuario_atual': request.user.tipo_usuario.nome,
-                'tipo_necessario': 'Doadora'
+                'error': 'Apenas Doadoras e Beneficiárias podem criar campanhas!',
+                'tipo_usuario_atual': request.user.tipo_usuario.nome if request.user.tipo_usuario else 'Não definido',
+                'tipos_permitidos': ['Doadora', 'Beneficiária']
             }, status=status.HTTP_403_FORBIDDEN)
     except Exception as e:
         return Response({
@@ -61,8 +65,7 @@ def criar_campanha(request):
         # Invalidar cache de listagens
         cache.delete_many([
             'campanhas_all',
-            f'campanhas_user_{request.user.id}',
-            f'campanhas_beneficiaria_{request.user.id}'
+            f'campanhas_user_{request.user.id}'
         ])
         
         message = f'Campanha "{campanha.titulo}" criada com sucesso!'
@@ -87,21 +90,22 @@ def criar_campanha(request):
     }
 )
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 @cache_page(settings.CACHE_TTL)  # Cache por 1 hora
 def listar_campanhas(request):
-    """API para listar campanhas com cache e otimizações"""
+    """API para listar campanhas com cache e otimizações. Mostra apenas campanhas publicadas."""
     cache_key = 'campanhas_all'
     cached_data = cache.get(cache_key)
     
     if cached_data is None:
         # Query otimizada com select_related e prefetch_related
+        # Mostra apenas campanhas publicadas e ativas
         campanhas = Campanha.objects.select_related(
             'organizadora__pessoa',
             'beneficiaria'
         ).prefetch_related(
-            'doacoes'
-        ).all()
+            'doacoes', 'itens'
+        ).filter(publicada=True, ativa=True)
         
         serializer = CampanhaSerializer(campanhas, many=True)
         cached_data = serializer.data
@@ -134,7 +138,7 @@ def minhas_campanhas(request):
                 'organizadora__pessoa',
                 'beneficiaria'
             ).prefetch_related(
-                'doacoes'
+                'doacoes', 'itens'
             ).filter(organizadora=organizadora)
             
             serializer = CampanhaSerializer(campanhas, many=True)
@@ -152,34 +156,149 @@ def minhas_campanhas(request):
     
     return Response(cached_data)
 
+
+
 @extend_schema(
-    operation_id='campanhas_beneficiaria',
-    summary='Campanhas como Beneficiária',
-    description='Lista as campanhas onde o usuário atual é beneficiária com cache.',
+    operation_id='listar_itens_campanha',
+    summary='Listar Itens de uma Campanha',
+    description='Lista todos os itens solicitados em uma campanha específica.',
     tags=['Campanhas'],
-    responses={
-        200: CampanhaSerializer(many=True),
-    }
+    responses={200: ItemCampanhaSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def listar_itens_campanha(request, campanha_id: int):
+    """Lista os itens de uma campanha"""
+    itens = ItemCampanha.objects.filter(campanha_id=campanha_id).order_by('nome')
+    serializer = ItemCampanhaSerializer(itens, many=True)
+    return Response(serializer.data)
+
+
+# ==================== SOLICITAÇÕES DE BENEFICIÁRIA ====================
+
+@extend_schema(
+    operation_id='minhas_solicitacoes_beneficiaria',
+    summary='Minhas Solicitações (Beneficiária)',
+    description='Lista as solicitações de associação como beneficiária para o usuário atual.',
+    tags=['Solicitações de Beneficiária'],
+    responses={200: OpenApiTypes.OBJECT}
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def campanhas_beneficiaria(request):
-    """API para listar campanhas onde o usuário é beneficiária com cache"""
-    cache_key = f'campanhas_beneficiaria_{request.user.id}'
-    cached_data = cache.get(cache_key)
+def minhas_solicitacoes_beneficiaria(request):
+    """Lista as solicitações pendentes para o usuário como beneficiária"""
+    solicitacoes = SolicitacaoBeneficiaria.objects.filter(
+        beneficiaria=request.user
+    ).select_related('campanha', 'organizadora__pessoa').order_by('-data_criacao')
     
-    if cached_data is None:
-        campanhas = Campanha.objects.select_related(
-            'organizadora__pessoa',
-            'beneficiaria'
-        ).prefetch_related(
-            'doacoes'
-        ).filter(beneficiaria=request.user)
-        
-        serializer = CampanhaSerializer(campanhas, many=True)
-        cached_data = serializer.data
-        
-        # Cache por 30 minutos
-        cache.set(cache_key, cached_data, settings.CACHE_TTL_USER)
+    data = []
+    for sol in solicitacoes:
+        data.append({
+            'id': sol.id,
+            'campanha': {
+                'id': sol.campanha.id,
+                'titulo': sol.campanha.titulo,
+                'descricao': sol.campanha.descricao,
+                'imagem': sol.campanha.imagem.src.url if sol.campanha.imagem else None,
+            },
+            'organizadora': {
+                'id': sol.organizadora.id,
+                'nome': sol.organizadora.pessoa.nome_exibicao,
+            },
+            'status': sol.status,
+            'status_display': sol.status_display,
+            'mensagem_organizadora': sol.mensagem_organizadora,
+            'mensagem_resposta': sol.mensagem_resposta,
+            'data_criacao': sol.data_criacao,
+            'data_resposta': sol.data_resposta,
+        })
     
-    return Response(cached_data)
+    return Response(data)
+
+
+@extend_schema(
+    operation_id='aceitar_solicitacao_beneficiaria',
+    summary='Aceitar Solicitação',
+    description='Aceita uma solicitação para ser beneficiária de uma campanha.',
+    tags=['Solicitações de Beneficiária'],
+    request=SolicitacaoRespostaSerializer,
+    responses={200: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def aceitar_solicitacao_beneficiaria(request, solicitacao_id: int):
+    """Aceita uma solicitação para ser beneficiária"""
+    try:
+        solicitacao = SolicitacaoBeneficiaria.objects.select_related('campanha', 'beneficiaria').get(id=solicitacao_id)
+        
+        # Verificar se o usuário é a beneficiária
+        if solicitacao.beneficiaria != request.user:
+            return Response({
+                'erro': 'Você não tem permissão para responder a esta solicitação'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Verificar se já foi respondida
+        if solicitacao.status != 'pendente':
+            return Response({
+                'erro': f'Esta solicitação já foi {solicitacao.status}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        mensagem = request.data.get('mensagem', '')
+        solicitacao.aceitar(mensagem)
+        
+        return Response({
+            'mensagem': 'Solicitação aceita com sucesso!',
+            'campanha': {
+                'id': solicitacao.campanha.id,
+                'titulo': solicitacao.campanha.titulo,
+            }
+        })
+        
+    except SolicitacaoBeneficiaria.DoesNotExist:
+        return Response({
+            'erro': 'Solicitação não encontrada'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    operation_id='recusar_solicitacao_beneficiaria',
+    summary='Recusar Solicitação',
+    description='Recusa uma solicitação para ser beneficiária de uma campanha.',
+    tags=['Solicitações de Beneficiária'],
+    request=SolicitacaoRespostaSerializer,
+    responses={200: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def recusar_solicitacao_beneficiaria(request, solicitacao_id: int):
+    """Recusa uma solicitação para ser beneficiária"""
+    try:
+        solicitacao = SolicitacaoBeneficiaria.objects.select_related('campanha', 'beneficiaria').get(id=solicitacao_id)
+        
+        # Verificar se o usuário é a beneficiária
+        if solicitacao.beneficiaria != request.user:
+            return Response({
+                'erro': 'Você não tem permissão para responder a esta solicitação'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Verificar se já foi respondida
+        if solicitacao.status != 'pendente':
+            return Response({
+                'erro': f'Esta solicitação já foi {solicitacao.status}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        mensagem = request.data.get('mensagem', '')
+        solicitacao.recusar(mensagem)
+        
+        return Response({
+            'mensagem': 'Solicitação recusada. Você foi removida como beneficiária desta campanha.',
+            'campanha': {
+                'id': solicitacao.campanha.id,
+                'titulo': solicitacao.campanha.titulo,
+            }
+        })
+        
+    except SolicitacaoBeneficiaria.DoesNotExist:
+        return Response({
+            'erro': 'Solicitação não encontrada'
+        }, status=status.HTTP_404_NOT_FOUND)

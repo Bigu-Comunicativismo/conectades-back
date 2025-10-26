@@ -268,6 +268,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 DEFAULT_FROM_EMAIL = 'noreply@conectades.com'
 SERVER_EMAIL = 'admin@conectades.com'
+SITE_URL = 'http://localhost:8001'  # URL base do site (ajustar em produção)
 
 # Configurações adicionais de email
 EMAIL_TIMEOUT = 10  # segundos

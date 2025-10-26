@@ -1,0 +1,49 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block content_title %}
+    <h1>📦 Doações</h1>
+    <div class="help" style="background: #e7f3ff; border: 1px solid #b3d9ff; padding: 10px; margin: 10px 0; border-radius: 4px;">
+        {% if user.tipo_usuario.codigo == 'beneficiaria' %}
+            <strong>👩‍👧‍👦 Beneficiária:</strong> Você pode atualizar o status das doações de suas campanhas.
+            <br><br>
+            <strong>📋 O que você pode fazer:</strong>
+            <ul style="margin: 5px 0 0 20px;">
+                <li>✅ <strong>Visualizar</strong> doações de suas campanhas</li>
+                <li>✏️ <strong>Atualizar status</strong> para "Confirmada" ou "Entregue"</li>
+                <li>❌ <strong>Cancelar doação</strong> se necessário</li>
+                <li>📅 <strong>Definir data de entrega</strong> quando receber a doação</li>
+                <li>📝 <strong>Adicionar observações</strong> sobre a doação</li>
+            </ul>
+        {% elif user.tipo_usuario.codigo == 'doadora' %}
+            <strong>💝 Doadora:</strong> Você pode criar doações e gerenciar suas contribuições.
+            <br><br>
+            <strong>📋 O que você pode fazer:</strong>
+            <ul style="margin: 5px 0 0 20px;">
+                <li>✅ <strong>Criar</strong> novas doações</li>
+                <li>👁️ <strong>Visualizar</strong> suas doações</li>
+                <li>❌ <strong>Cancelar</strong> suas doações se necessário</li>
+                <li>📞 <strong>Entrar em contato</strong> com a beneficiária se necessário</li>
+                <li>🔍 <strong>Filtrar</strong> e <strong>buscar</strong> suas doações</li>
+            </ul>
+        {% else %}
+            <strong>👨‍💼 Administrador:</strong> Acesso completo ao sistema de doações.
+            <br><br>
+            <strong>📋 O que você pode fazer:</strong>
+            <ul style="margin: 5px 0 0 20px;">
+                <li>✅ <strong>Criar</strong> novas doações</li>
+                <li>✏️ <strong>Editar</strong> todas as doações</li>
+                <li>👁️ <strong>Visualizar</strong> todas as doações</li>
+                <li>🔍 <strong>Filtrar</strong> e <strong>buscar</strong> doações</li>
+            </ul>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'admin:doacoes_doacao_add' %}" class="addlink">
+            ➕ Adicionar Doação
+        </a>
+    </li>
+{% endblock %}

@@ -1,6 +1,23 @@
 from rest_framework import serializers
-from .models import Organizadora, Campanha
+from .models import Organizadora, Campanha, ItemCampanha
 from backend.pessoas.serializers import PessoaSerializer
+
+
+class ItemCampanhaSerializer(serializers.ModelSerializer):
+    """Serializer para itens de campanha"""
+    percentual_atingido = serializers.SerializerMethodField(read_only=True)
+    
+    def get_percentual_atingido(self, obj):
+        return obj.percentual_atingido
+    
+    class Meta:
+        model = ItemCampanha
+        fields = [
+            'id', 'campanha', 'nome', 'quantidade_solicitada', 
+            'quantidade_contribuida', 'unidade', 'percentual_atingido',
+            'data_criacao'
+        ]
+        read_only_fields = ['id', 'quantidade_contribuida', 'data_criacao']
 
 class OrganizadoraSerializer(serializers.ModelSerializer):
     pessoa = PessoaSerializer(read_only=True)
@@ -29,33 +46,56 @@ class CampanhaSerializer(serializers.ModelSerializer):
     )
     beneficiaria = PessoaSerializer(read_only=True)
     beneficiaria_id = serializers.IntegerField(
-        write_only=True, 
-        required=False, 
+        write_only=True,
+        required=False,
         allow_null=True,
         help_text="ID da beneficiária (opcional)"
     )
+    beneficiaria_nome = serializers.CharField(source='beneficiaria.nome_exibicao', read_only=True, allow_null=True)
+    
     titulo = serializers.CharField(
         help_text="Título da campanha"
     )
     descricao = serializers.CharField(
         help_text="Descrição detalhada da campanha"
     )
-    data_inicio = serializers.DateField(
-        help_text="Data de início da campanha (formato: YYYY-MM-DD)"
-    )
-    data_fim = serializers.DateField(
-        required=False,
-        allow_null=True,
-        help_text="Data de fim da campanha (formato: YYYY-MM-DD)"
-    )
+    
+    # Campos calculados
+    percentual_atingido = serializers.SerializerMethodField(read_only=True)
+    status_campanha = serializers.SerializerMethodField(read_only=True)
+    total_itens = serializers.SerializerMethodField(read_only=True)
+    itens_completos = serializers.SerializerMethodField(read_only=True)
+    dias_restantes = serializers.SerializerMethodField(read_only=True)
+    itens = ItemCampanhaSerializer(many=True, read_only=True)
+    
+    def get_percentual_atingido(self, obj):
+        return obj.percentual_atingido
+    
+    def get_status_campanha(self, obj):
+        return obj.status_campanha
+    
+    def get_total_itens(self, obj):
+        return obj.total_itens
+    
+    def get_itens_completos(self, obj):
+        return obj.itens_completos
+    
+    def get_dias_restantes(self, obj):
+        return obj.dias_restantes
     
     class Meta:
         model = Campanha
         fields = [
-            'id', 'titulo', 'descricao', 'organizadora', 'organizadora_id',
-            'beneficiaria', 'beneficiaria_id', 'data_inicio', 'data_fim'
+            'id', 'titulo', 'subtitulo', 'descricao', 
+            'organizadora', 'organizadora_id',
+            'beneficiaria', 'beneficiaria_id', 'beneficiaria_nome',
+            'imagem', 'categorias', 'whatsapp', 'localizacao',
+            'data_inicio', 'prazo', 'dias_restantes',
+            'percentual_atingido', 'status_campanha', 
+            'total_itens', 'itens_completos', 'itens',
+            'ativa'
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'beneficiaria', 'percentual_atingido', 'status_campanha', 'total_itens', 'itens_completos', 'dias_restantes']
     
     def create(self, validated_data):
         organizadora_id = validated_data.pop('organizadora_id')

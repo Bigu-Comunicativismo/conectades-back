@@ -1,0 +1,174 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+      - prod
+  pull_request:
+    branches:
+      - main
+      - prod
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: conectades_test
+          POSTGRES_USER: admin_conectades
+          POSTGRES_PASSWORD: conectaZ0Z6@
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run migrations (check)
+        env:
+          DATABASE_URL: postgresql://admin_conectades:conectaZ0Z6@@localhost:5432/conectades_test
+          DJANGO_SETTINGS_MODULE: backend.core.settings
+        run: |
+          cd backend
+          python manage.py makemigrations --check --dry-run
+          python manage.py migrate --noinput
+      
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://admin_conectades:conectaZ0Z6@@localhost:5432/conectades_test
+          DJANGO_SETTINGS_MODULE: backend.core.settings
+        run: |
+          cd backend
+          python manage.py test
+      
+      - name: Check for linting errors
+        run: |
+          pip install flake8
+          flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      
+      - name: Security check
+        run: |
+          pip install safety bandit
+          safety check --json || true
+          bandit -r backend -ll || true
+
+  deploy:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/prod')
+    environment:
+      name: production
+      url: https://api.conectades.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USERNAME }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT }}
+          script: |
+            # Navegar para o diretório do projeto
+            cd ${{ secrets.PROD_PROJECT_PATH }}
+            
+            # Fazer backup antes do deploy
+            echo "📦 Criando backup..."
+            timestamp=$(date +%Y%m%d_%H%M%S)
+            pg_dump ${{ secrets.PROD_DB_NAME }} > ~/backups/db_backup_${timestamp}.sql
+            
+            # Pull das mudanças
+            echo "🔄 Atualizando código..."
+            git fetch origin
+            git checkout ${{ secrets.PROD_BRANCH }}
+            git pull origin ${{ secrets.PROD_BRANCH }}
+            
+            # Ativar ambiente virtual
+            source venv/bin/activate
+            
+            # Instalar/atualizar dependências
+            echo "📦 Instalando dependências..."
+            pip install -r requirements.txt
+            
+            # Executar migrações
+            echo "🗄️  Executando migrações..."
+            cd backend
+            python manage.py migrate --noinput
+            
+            # Coletar arquivos estáticos
+            echo "📁 Coletando arquivos estáticos..."
+            python manage.py collectstatic --noinput
+            
+            # Recarregar aplicação
+            echo "🔄 Recarregando aplicação..."
+            sudo systemctl restart gunicorn-prod
+            sudo systemctl reload nginx
+            
+            echo "✅ Deploy de produção concluído!"
+      
+      - name: Health check
+        run: |
+          echo "🏥 Verificando saúde da aplicação..."
+          sleep 10
+          curl -f ${{ secrets.PROD_HEALTH_CHECK_URL }} || exit 1
+      
+      - name: Notify success
+        if: success()
+        run: |
+          echo "🎉 Deploy de produção realizado com sucesso!"
+      
+      - name: Rollback on failure
+        if: failure()
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USERNAME }}
+          key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT }}
+          script: |
+            echo "⚠️ Deploy falhou! Executando rollback..."
+            cd ${{ secrets.PROD_PROJECT_PATH }}
+            git reset --hard HEAD~1
+            # Recarregar aplicação
+            # [mesmo comando de reload acima]
+            echo "🔙 Rollback concluído!"
+
