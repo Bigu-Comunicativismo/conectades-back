@@ -6,6 +6,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from django.core.cache import cache
 from django.db import transaction
+from django.conf import settings
 from .models import Pessoa, CodigoVerificacao
 from .serializers import (
     PessoaSerializer,
@@ -217,32 +218,44 @@ def iniciar_registro(request):
     Valida dados e envia link de ativação por email
     ENDPOINT PÚBLICO - não requer autenticação
     """
-    serializer = RegistroComCodigoSerializer(data=request.data)
+    try:
+        serializer = RegistroComCodigoSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        email = serializer.validated_data['email']
+        
+        # Armazenar dados temporariamente em cache (expira em 24 horas)
+        cache_key = f'registro_pendente_{email}'
+        cache.set(cache_key, serializer.validated_data, 60 * 60 * 24)
+        
+        # Enviar link de ativação
+        sucesso, mensagem, codigo_obj = enviar_link_ativacao(email, tipo='cadastro')
+        
+        if not sucesso:
+            return Response(
+                {'error': mensagem},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+        return Response({
+            'message': 'Link de ativação enviado para seu email',
+            'email': email,
+            'validade': '24 horas',
+            'proximo_passo': 'Clique no link enviado para ativar sua conta'
+        }, status=status.HTTP_200_OK)
     
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    email = serializer.validated_data['email']
-    
-    # Armazenar dados temporariamente em cache (expira em 24 horas)
-    cache_key = f'registro_pendente_{email}'
-    cache.set(cache_key, serializer.validated_data, 60 * 60 * 24)
-    
-    # Enviar link de ativação
-    sucesso, mensagem, codigo_obj = enviar_link_ativacao(email, tipo='cadastro')
-    
-    if not sucesso:
-        return Response(
-            {'error': mensagem},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-    
-    return Response({
-        'message': 'Link de ativação enviado para seu email',
-        'email': email,
-        'validade': '24 horas',
-        'proximo_passo': 'Clique no link enviado para ativar sua conta'
-    }, status=status.HTTP_200_OK)
+    except Exception as e:
+        # Log do erro para debug
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Erro ao iniciar registro: {str(e)}", exc_info=True)
+        
+        return Response({
+            'error': 'Erro ao processar cadastro',
+            'detail': str(e) if settings.DEBUG else 'Erro interno do servidor'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @extend_schema(

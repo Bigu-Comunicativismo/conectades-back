@@ -1,33 +1,5 @@
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
-# Configurações do drf-spectacular para exibir endpoints JWT no Swagger
-SPECTACULAR_SETTINGS = {
-    "AUTHENTICATION_WHITELIST": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ],
-    "COMPONENTS": {
-        "securitySchemes": {
-            "JWT": {
-                "type": "http",
-                "scheme": "bearer",
-                "bearerFormat": "JWT",
-            }
-        }
-    },
-    "TITLE": "Conectades API",
-    "DESCRIPTION": "Documentação da API Conectades",
-    "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
-    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
-    "SERVE_AUTHENTICATION": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ],
-    "SWAGGER_UI_SETTINGS": {
-        "persistAuthorization": True,
-    },
-    "SECURITY": [
-        {"JWT": []},
-    ],
-}
+
 """
 Django settings for core project.
 
@@ -70,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_spectacular',
+    'corsheaders',  # CORS support
 
     # Apps locais
     'backend.pessoas',
@@ -80,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS - deve vir antes do CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -163,6 +137,8 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Exception handler customizado para sempre retornar JSON
+    "EXCEPTION_HANDLER": "backend.core.exception_handler.custom_exception_handler",
     # Paginação padrão
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
@@ -190,11 +166,96 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Conectades API",
-    "DESCRIPTION": "API para plataforma de campanhas de doação Conectades",
-    "VERSION": "1.0.0",
+    "DESCRIPTION": """
+# API Conectades - Plataforma de Campanhas de Doação
+
+## 🌐 CORS Configurado
+Esta API possui CORS configurado para permitir requisições de:
+- `http://localhost:3000` (React/Next.js)
+- `http://localhost:5173` (Vite)
+- `http://127.0.0.1:3000`
+- `http://127.0.0.1:5173`
+
+## 🔐 Autenticação
+A API usa JWT (JSON Web Tokens) para autenticação.
+
+### Como usar:
+1. Faça login em `/api/auth/login/` para obter os tokens
+2. Use o `access` token no header: `Authorization: Bearer <seu-token>`
+3. Quando o `access` expirar (5 min), use o `refresh` token em `/api/token/refresh/`
+
+## 📝 Cadastro com Link de Ativação
+O fluxo de cadastro funciona em 2 etapas:
+1. POST `/api/auth/registro/iniciar/` - Envia dados e recebe email com link
+2. GET `/api/auth/registro/ativar/<token>/` - Usuário clica no link e ativa a conta
+
+## 🔄 Formato de Erros
+Todos os erros retornam JSON no formato:
+```json
+{
+  "error": "Descrição do erro",
+  "detail": "Detalhes técnicos (apenas em DEBUG)",
+  "error_type": "TipoDoErro"
+}
+```
+
+## 📍 Localizações
+As localizações são hierárquicas:
+- `cidades`: Lista de cidades disponíveis
+- `bairros_por_cidade`: Bairros agrupados por cidade
+
+Consulte `/api/auth/opcoes/` para ver a estrutura completa.
+
+## 📚 Documentação Adicional
+- Guia Frontend Cadastro: `/docs/GUIA_FRONTEND_CADASTRO.md`
+- Guia Frontend Localizações: `/docs/GUIA_FRONTEND_LOCALIZACOES.md`
+- Resumo para Frontend: `/docs/RESUMO_PARA_FRONTEND.md`
+    """,
+    "VERSION": "1.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": "/api/",
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "SWAGGER_UI_SETTINGS": {
+        "persistAuthorization": True,
+        "displayRequestDuration": True,
+        "filter": True,
+        "tryItOutEnabled": True,
+    },
+    "AUTHENTICATION_WHITELIST": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "COMPONENTS": {
+        "securitySchemes": {
+            "JWT": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Token JWT obtido via login. Formato: `Bearer <seu-token>`"
+            }
+        }
+    },
+    "SECURITY": [
+        {"JWT": []},
+    ],
+    "SERVERS": [
+        {
+            "url": "http://localhost:8000",
+            "description": "Servidor de Desenvolvimento Local"
+        },
+        {
+            "url": "http://localhost:5173",
+            "description": "Proxy Vite (Frontend)"
+        },
+    ],
+    "TAGS": [
+        {"name": "Cadastro - Público", "description": "Endpoints de cadastro e ativação (sem autenticação)"},
+        {"name": "Autenticação - Público", "description": "Login e recuperação de senha (sem autenticação)"},
+        {"name": "Recuperação de Senha - Público", "description": "Fluxo de recuperação de senha"},
+        {"name": "Perfil - Protegido", "description": "Gerenciamento de perfil do usuário (requer JWT)"},
+        {"name": "Campanhas", "description": "Gerenciamento de campanhas de doação"},
+        {"name": "Doações", "description": "Sistema de doações"},
+    ],
 }
 
 AUTH_USER_MODEL = "pessoas.Pessoa"
@@ -268,6 +329,62 @@ DEFAULT_FROM_EMAIL = 'noreply@conectades.com'
 SERVER_EMAIL = 'admin@conectades.com'
 SITE_URL = 'http://localhost:8001'  # URL base do site (ajustar em produção)
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')  # URL do frontend para redirecionamento
+
+# ============================================================================
+# CONFIGURAÇÕES CORS (Cross-Origin Resource Sharing)
+# ============================================================================
+
+# Permitir requests de qualquer origem em desenvolvimento
+# Em produção, especifique as origens permitidas
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # True em DEV, False em PROD
+
+# Em produção, especifique as origens permitidas:
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',  # Vite default
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+    # Adicione aqui suas URLs de produção quando houver
+]
+
+# Permitir credenciais (cookies, authorization headers)
+CORS_ALLOW_CREDENTIALS = True
+
+# Permitir todos os métodos HTTP
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Permitir todos os headers necessários
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Expor headers para o frontend
+CORS_EXPOSE_HEADERS = [
+    'content-type',
+    'x-csrftoken',
+]
+
+# Cache de preflight requests (OPTIONS) por 1 hora
+CORS_PREFLIGHT_MAX_AGE = 3600
+
+# ============================================================================
+# FIM CONFIGURAÇÕES CORS
+# ============================================================================
 
 # Configurações adicionais de email
 EMAIL_TIMEOUT = 10  # segundos
