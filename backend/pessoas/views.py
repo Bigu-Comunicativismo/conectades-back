@@ -226,9 +226,24 @@ def iniciar_registro(request):
         
         email = serializer.validated_data['email']
         
+        # Converter dados para formato serializável (dict com IDs ao invés de objetos)
+        dados_cache = {}
+        for key, value in serializer.validated_data.items():
+            # Converter objetos Django (ForeignKey) para IDs
+            if hasattr(value, 'pk'):
+                dados_cache[key] = value.pk
+            # Converter QuerySets e listas de objetos para listas de IDs
+            elif hasattr(value, '__iter__') and not isinstance(value, (str, dict)):
+                try:
+                    dados_cache[key] = [item.pk if hasattr(item, 'pk') else item for item in value]
+                except:
+                    dados_cache[key] = list(value)
+            else:
+                dados_cache[key] = value
+        
         # Armazenar dados temporariamente em cache (expira em 24 horas)
         cache_key = f'registro_pendente_{email}'
-        cache.set(cache_key, serializer.validated_data, 60 * 60 * 24)
+        cache.set(cache_key, dados_cache, 60 * 60 * 24)
         
         # Enviar link de ativação
         sucesso, mensagem, codigo_obj = enviar_link_ativacao(email, tipo='cadastro')
@@ -313,19 +328,26 @@ def confirmar_registro(request):
     try:
         # Criar usuário
         password = dados_registro.pop('password')
-        categorias = dados_registro.pop('categorias_interesse', [])
-        localizacoes = dados_registro.pop('localizacoes_interesse', [])
+        categorias_ids = dados_registro.pop('categorias_interesse', [])
+        localizacoes_ids = dados_registro.pop('localizacoes_interesse', [])
+        
+        # Reconstituir objetos ForeignKey a partir dos IDs
+        from .models import TipoUsuario, Genero
+        if 'tipo_usuario' in dados_registro and isinstance(dados_registro['tipo_usuario'], int):
+            dados_registro['tipo_usuario'] = TipoUsuario.objects.get(pk=dados_registro['tipo_usuario'])
+        if 'genero' in dados_registro and isinstance(dados_registro['genero'], int):
+            dados_registro['genero'] = Genero.objects.get(pk=dados_registro['genero'])
         
         pessoa = Pessoa.objects.create_user(
             password=password,
             **dados_registro
         )
         
-        # Adicionar relações ManyToMany
-        if categorias:
-            pessoa.categorias_interesse.set(categorias)
-        if localizacoes:
-            pessoa.localizacoes_interesse.set(localizacoes)
+        # Adicionar relações ManyToMany (usando IDs)
+        if categorias_ids:
+            pessoa.categorias_interesse.set(categorias_ids)
+        if localizacoes_ids:
+            pessoa.localizacoes_interesse.set(localizacoes_ids)
         
         # Marcar código como usado
         codigo_obj.marcar_como_usado()
@@ -411,19 +433,27 @@ def ativar_conta(request, token):
         
         # Criar usuário
         password = dados_registro.pop('password')
-        categorias = dados_registro.pop('categorias_interesse', [])
-        localizacoes = dados_registro.pop('localizacoes_interesse', [])
+        categorias_ids = dados_registro.pop('categorias_interesse', [])
+        localizacoes_ids = dados_registro.pop('localizacoes_interesse', [])
+        
+        # Reconstituir objetos ForeignKey a partir dos IDs
+        # tipo_usuario e genero já vêm como IDs do cache
+        from .models import TipoUsuario, Genero
+        if 'tipo_usuario' in dados_registro and isinstance(dados_registro['tipo_usuario'], int):
+            dados_registro['tipo_usuario'] = TipoUsuario.objects.get(pk=dados_registro['tipo_usuario'])
+        if 'genero' in dados_registro and isinstance(dados_registro['genero'], int):
+            dados_registro['genero'] = Genero.objects.get(pk=dados_registro['genero'])
         
         pessoa = Pessoa.objects.create_user(
             password=password,
             **dados_registro
         )
         
-        # Adicionar relações ManyToMany
-        if categorias:
-            pessoa.categorias_interesse.set(categorias)
-        if localizacoes:
-            pessoa.localizacoes_interesse.set(localizacoes)
+        # Adicionar relações ManyToMany (usando IDs)
+        if categorias_ids:
+            pessoa.categorias_interesse.set(categorias_ids)
+        if localizacoes_ids:
+            pessoa.localizacoes_interesse.set(localizacoes_ids)
         
         # Marcar token como usado
         codigo_obj.marcar_como_usado()
