@@ -131,7 +131,7 @@ log_success "Deploy iniciado!"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📊 Próximos passos:"
-echo "   1. Acompanhe o progresso em: https://github.com/SEU_USUARIO/conectades/actions"
+echo "   1. Acompanhe o progresso em: https://github.com/sergiomonteirodev/conectades/actions"
 echo "   2. Aguarde conclusão do workflow"
 echo "   3. Verifique a aplicação no ambiente"
 if [ "$ENVIRONMENT" == "dev" ]; then

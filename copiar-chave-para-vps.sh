@@ -75,3 +75,14 @@ else
     echo "   chmod 600 ~/.ssh/authorized_keys"
 fi
 
+
+
+
+
+
+
+
+
+
+
+

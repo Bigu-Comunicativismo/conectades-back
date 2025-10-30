@@ -399,7 +399,7 @@ class SolicitacaoBeneficiaria(models.Model):
         ordering = ['-data_criacao']
         # Apenas uma solicitação pendente por campanha-beneficiária
         unique_together = [['campanha', 'beneficiaria']]
-    
+
     def __str__(self):
         return f"{self.campanha.titulo} → {self.beneficiaria.nome_exibicao} ({self.status})"
     

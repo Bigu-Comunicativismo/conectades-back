@@ -5,9 +5,6 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from django.core.cache import cache
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-from django.db.models import Prefetch
 from django.conf import settings
 from .models import Organizadora, Campanha, ItemCampanha, SolicitacaoBeneficiaria
 from .serializers import OrganizadoraSerializer, CampanhaSerializer, ItemCampanhaSerializer
@@ -91,7 +88,6 @@ def criar_campanha(request):
 )
 @api_view(['GET'])
 @permission_classes([AllowAny])
-@cache_page(settings.CACHE_TTL)  # Cache por 1 hora
 def listar_campanhas(request):
     """API para listar campanhas com cache e otimizações. Mostra apenas campanhas publicadas."""
     cache_key = 'campanhas_all'

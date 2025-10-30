@@ -7,7 +7,7 @@
 #
 # ✅ Configura Docker + Docker Compose
 # ✅ Cria ambientes DEV e PROD separados
-# ✅ Nginx como proxy reverso
+# ✅ ALLOWED_HOSTS configurado corretamente
 ##############################################################################
 
 set -e
@@ -164,7 +164,20 @@ log_step "ETAPA 3/6: Clonando Repositórios"
 if [ -d "/var/www/conectades-dev/.git" ]; then
     log_warn "Repositório DEV já existe, atualizando..."
     cd /var/www/conectades-dev
-    git fetch origin && git checkout $BRANCH_DEV && git pull origin $BRANCH_DEV
+    
+    # Fazer stash de mudanças locais
+    git stash push -m "Auto-stash antes de atualizar $(date)" 2>/dev/null || true
+    
+    # Resetar mudanças que não podem ser stashed
+    git reset --hard HEAD
+    git clean -fd
+    
+    # Atualizar
+    git fetch origin
+    git checkout $BRANCH_DEV
+    git pull origin $BRANCH_DEV
+    
+    log_ok "Repositório DEV atualizado"
 else
     log_info "Clonando branch $BRANCH_DEV..."
     git clone -b $BRANCH_DEV $GITHUB_REPO /var/www/conectades-dev
@@ -175,7 +188,20 @@ fi
 if [ -d "/var/www/conectades-prod/.git" ]; then
     log_warn "Repositório PROD já existe, atualizando..."
     cd /var/www/conectades-prod
-    git fetch origin && git checkout $BRANCH_PROD && git pull origin $BRANCH_PROD
+    
+    # Fazer stash de mudanças locais
+    git stash push -m "Auto-stash antes de atualizar $(date)" 2>/dev/null || true
+    
+    # Resetar mudanças que não podem ser stashed
+    git reset --hard HEAD
+    git clean -fd
+    
+    # Atualizar
+    git fetch origin
+    git checkout $BRANCH_PROD
+    git pull origin $BRANCH_PROD
+    
+    log_ok "Repositório PROD atualizado"
 else
     log_info "Clonando branch $BRANCH_PROD..."
     git clone -b $BRANCH_PROD $GITHUB_REPO /var/www/conectades-prod
@@ -183,10 +209,26 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════
-# ETAPA 4: CRIAR DOCKER-COMPOSE PARA DEV
+# ETAPA 4: CONFIGURAR ALLOWED_HOSTS NO SETTINGS.PY
 # ═══════════════════════════════════════════════════════════
 
-log_step "ETAPA 4/6: Configurando Docker Compose DEV"
+log_step "Configurando ALLOWED_HOSTS"
+
+# DEV - Aceitar qualquer host
+log_info "Configurando DEV para aceitar qualquer host..."
+sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['*']/" /var/www/conectades-dev/backend/core/settings.py
+
+# PROD - Aceitar apenas IP específico
+log_info "Configurando PROD para aceitar IP $SERVER_IP..."
+sed -i "s/ALLOWED_HOSTS = \[.*\]/ALLOWED_HOSTS = ['$SERVER_IP', 'localhost', '127.0.0.1']/" /var/www/conectades-prod/backend/core/settings.py
+
+log_ok "ALLOWED_HOSTS configurado"
+
+# ═══════════════════════════════════════════════════════════
+# ETAPA 5: CRIAR DOCKER-COMPOSE PARA DEV
+# ═══════════════════════════════════════════════════════════
+
+log_step "ETAPA 5/6: Configurando Docker Compose DEV"
 
 cat > /var/www/conectades-dev/docker-compose.yml << 'EOF'
 services:
@@ -202,6 +244,11 @@ services:
     ports:
       - "5433:5432"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin_conectades"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -227,8 +274,10 @@ services:
       - DEBUG=True
       - PYTHONPATH=/app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
@@ -240,10 +289,10 @@ EOF
 log_ok "docker-compose.yml DEV criado"
 
 # ═══════════════════════════════════════════════════════════
-# ETAPA 5: CRIAR DOCKER-COMPOSE PARA PROD
+# ETAPA 6: CRIAR DOCKER-COMPOSE PARA PROD
 # ═══════════════════════════════════════════════════════════
 
-log_step "ETAPA 5/6: Configurando Docker Compose PROD"
+log_step "ETAPA 6/6: Configurando Docker Compose PROD"
 
 cat > /var/www/conectades-prod/docker-compose.yml << 'EOF'
 services:
@@ -259,6 +308,11 @@ services:
     ports:
       - "5434:5432"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin_conectades"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
@@ -284,8 +338,10 @@ services:
       - DEBUG=False
       - PYTHONPATH=/app
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
@@ -297,10 +353,10 @@ EOF
 log_ok "docker-compose.yml PROD criado"
 
 # ═══════════════════════════════════════════════════════════
-# ETAPA 6: INICIAR CONTAINERS
+# ETAPA 7: INICIAR CONTAINERS
 # ═══════════════════════════════════════════════════════════
 
-log_step "ETAPA 6/6: Iniciando Containers"
+log_step "Iniciando Containers"
 
 log_info "Buildando e iniciando DEV..."
 cd /var/www/conectades-dev
@@ -363,7 +419,7 @@ EOF
 echo -e "${NC}\n"
 
 echo -e "${C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${G}🐳 CONTAINERS RODANDO${NC}"
+echo -e "${G}�� CONTAINERS RODANDO${NC}"
 echo -e "${C}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${B}DEV:${NC}"
@@ -406,7 +462,7 @@ echo -e "   PROD_SSH_USERNAME = $USER"
 echo -e "   PROD_SSH_PORT = 22"
 echo -e "   PROD_PROJECT_PATH = /var/www/conectades-prod"
 echo -e ""
-echo -e "   ${G}Chave SSH:${NC}"
+echo -e "   ${G}Chave SSH privada (adicione no GitHub Secrets como SSH_PRIVATE_KEY):${NC}"
 echo -e "   ${C}cat ~/.ssh/github_deploy_key${NC}"
 
 echo -e "\n${Y}4. Comandos úteis:${NC}"
