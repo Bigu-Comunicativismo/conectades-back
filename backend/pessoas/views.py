@@ -48,15 +48,21 @@ def listar_opcoes_cadastro(request):
     """
     Lista todas as opções disponíveis para o cadastro
     ENDPOINT PÚBLICO - não requer autenticação
+    
+    Query params:
+    - refresh=true: Force cache refresh
     """
     from .models import TipoUsuario, Genero, CategoriaInteresse, LocalizacaoInteresse
     
-    # Tentar buscar do cache primeiro
-    cache_key = 'opcoes_cadastro_completo'
-    dados_cache = cache.get(cache_key)
+    # Verificar se deve forçar refresh do cache
+    force_refresh = request.query_params.get('refresh', 'false').lower() == 'true'
     
-    if dados_cache:
-        return Response(dados_cache)
+    # Tentar buscar do cache primeiro (se não for refresh)
+    cache_key = 'opcoes_cadastro_completo'
+    if not force_refresh:
+        dados_cache = cache.get(cache_key)
+        if dados_cache:
+            return Response(dados_cache)
     
     # Buscar cidades e bairros separadamente
     cidades = LocalizacaoInteresse.objects.filter(
