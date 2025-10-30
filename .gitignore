@@ -121,3 +121,8 @@ dmypy.json
 *.sql
 *.dump
 
+
+# Arquivos sensíveis
+VALORES_SECRETS.txt
+*secrets*.txt
+*SECRETS*
