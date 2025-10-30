@@ -33,11 +33,73 @@ class CategoriaInteresseAdmin(admin.ModelAdmin):
 
 @admin.register(LocalizacaoInteresse)
 class LocalizacaoInteresseAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'tipo', 'cidade', 'estado', 'ativo', 'ordem', 'data_criacao')
-    list_filter = ('tipo', 'estado', 'ativo', 'data_criacao')
+    list_display = ('nome_formatado', 'tipo_badge', 'cidade_display', 'estado', 'codigo', 'ativo', 'ordem', 'data_criacao')
+    list_filter = ('tipo', 'estado', 'cidade', 'ativo', 'data_criacao')
     search_fields = ('nome', 'cidade', 'codigo')
     list_editable = ('ativo', 'ordem')
-    ordering = ('estado', 'cidade', 'ordem', 'nome')
+    ordering = ('estado', 'cidade', 'tipo', 'ordem', 'nome')
+    list_per_page = 50
+    
+    fieldsets = (
+        ('Identificação', {
+            'fields': ('tipo', 'nome', 'codigo')
+        }),
+        ('Localização', {
+            'fields': ('cidade', 'estado'),
+            'description': 'Preencha "cidade" apenas se o tipo for "bairro". Se for "cidade", deixe vazio ou igual ao nome.'
+        }),
+        ('Configurações', {
+            'fields': ('ativo', 'ordem')
+        }),
+    )
+    
+    readonly_fields = ('codigo', 'data_criacao')
+    
+    def nome_formatado(self, obj):
+        """Exibe nome com ícone baseado no tipo"""
+        icones = {
+            'bairro': '🏘️',
+            'cidade': '🏙️',
+            'regiao': '🗺️',
+        }
+        icone = icones.get(obj.tipo, '📍')
+        return f"{icone} {obj.nome}"
+    nome_formatado.short_description = "Nome"
+    nome_formatado.admin_order_field = 'nome'
+    
+    def tipo_badge(self, obj):
+        """Exibe tipo com cor"""
+        cores = {
+            'bairro': '#10b981',  # Verde
+            'cidade': '#3b82f6',  # Azul
+            'regiao': '#8b5cf6',  # Roxo
+        }
+        labels = {
+            'bairro': 'Bairro',
+            'cidade': 'Cidade',
+            'regiao': 'Região',
+        }
+        cor = cores.get(obj.tipo, '#6b7280')
+        label = labels.get(obj.tipo, obj.tipo)
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 10px; '
+            'border-radius: 3px; font-size: 11px; font-weight: bold;">{}</span>',
+            cor, label
+        )
+    tipo_badge.short_description = "Tipo"
+    tipo_badge.admin_order_field = 'tipo'
+    
+    def cidade_display(self, obj):
+        """Exibe cidade de forma inteligente"""
+        if obj.tipo == 'cidade':
+            return format_html('<span style="color: #9ca3af;">—</span>')
+        return obj.cidade or '-'
+    cidade_display.short_description = "Pertence à Cidade"
+    cidade_display.admin_order_field = 'cidade'
+    
+    def get_queryset(self, request):
+        """Otimiza consulta"""
+        return super().get_queryset(request)
 
 @admin.register(Pessoa)
 class PessoaAdmin(UserAdmin):
