@@ -29,7 +29,15 @@ from .email_service import enviar_codigo_verificacao, verificar_codigo, enviar_l
 @extend_schema(
     operation_id='listar_opcoes_cadastro',
     summary='Listar Opções de Cadastro',
-    description='Retorna todas as opções disponíveis para cadastro: tipos de usuário, gêneros, categorias e localizações',
+    description='''
+    Retorna todas as opções disponíveis para cadastro.
+    
+    **Estrutura de Localizações:**
+    - `cidades`: Lista de cidades disponíveis
+    - `bairros_por_cidade`: Dicionário com bairros agrupados por cidade
+    
+    Isso facilita a criação de dropdowns dependentes (cidade → bairro).
+    ''',
     tags=['Cadastro - Público'],
     responses={200: OpenApiResponse(description="Opções disponíveis")}
 )
@@ -49,6 +57,29 @@ def listar_opcoes_cadastro(request):
     if dados_cache:
         return Response(dados_cache)
     
+    # Buscar cidades e bairros separadamente
+    cidades = LocalizacaoInteresse.objects.filter(
+        ativo=True,
+        tipo='cidade'
+    ).order_by('ordem', 'nome')
+    
+    bairros = LocalizacaoInteresse.objects.filter(
+        ativo=True,
+        tipo='bairro'
+    ).order_by('cidade', 'ordem', 'nome')
+    
+    # Agrupar bairros por cidade
+    bairros_por_cidade = {}
+    for bairro in bairros:
+        cidade_nome = bairro.cidade or 'Outros'
+        if cidade_nome not in bairros_por_cidade:
+            bairros_por_cidade[cidade_nome] = []
+        bairros_por_cidade[cidade_nome].append({
+            'id': bairro.id,
+            'nome': bairro.nome,
+            'codigo': bairro.codigo,
+        })
+    
     # Se não estiver em cache, buscar do banco
     dados = {
         'tipos_usuario': TipoUsuarioSerializer(
@@ -63,10 +94,92 @@ def listar_opcoes_cadastro(request):
             CategoriaInteresse.objects.filter(ativo=True),
             many=True
         ).data,
+        'cidades': [
+            {
+                'id': cidade.id,
+                'nome': cidade.nome,
+                'codigo': cidade.codigo,
+                'estado': cidade.estado,
+            }
+            for cidade in cidades
+        ],
+        'bairros_por_cidade': bairros_por_cidade,
+        # Mantido para compatibilidade retroativa
         'localizacoes_interesse': LocalizacaoInteresseSerializer(
             LocalizacaoInteresse.objects.filter(ativo=True),
             many=True
         ).data,
+    }
+    
+    # Armazenar em cache por 1 hora
+    cache.set(cache_key, dados, 60 * 60)
+    
+    return Response(dados)
+
+
+@extend_schema(
+    operation_id='listar_bairros_cidade',
+    summary='Listar Bairros por Cidade',
+    description='''
+    Retorna todos os bairros de uma cidade específica.
+    
+    **Uso:** Útil para popular o dropdown de bairros após selecionar a cidade.
+    
+    **ENDPOINT PÚBLICO** - não requer autenticação
+    ''',
+    tags=['Cadastro - Público'],
+    responses={
+        200: OpenApiResponse(description="Lista de bairros"),
+        404: OpenApiResponse(description="Cidade não encontrada")
+    }
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def listar_bairros_cidade(request, cidade):
+    """
+    Lista bairros de uma cidade específica
+    ENDPOINT PÚBLICO - não requer autenticação
+    """
+    from .models import LocalizacaoInteresse
+    
+    # Tentar buscar do cache primeiro
+    cache_key = f'bairros_cidade_{cidade}'
+    dados_cache = cache.get(cache_key)
+    
+    if dados_cache:
+        return Response(dados_cache)
+    
+    # Verificar se a cidade existe
+    cidade_existe = LocalizacaoInteresse.objects.filter(
+        tipo='cidade',
+        nome=cidade,
+        ativo=True
+    ).exists()
+    
+    if not cidade_existe:
+        return Response(
+            {'error': f'Cidade "{cidade}" não encontrada'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Buscar bairros
+    bairros = LocalizacaoInteresse.objects.filter(
+        tipo='bairro',
+        cidade=cidade,
+        ativo=True
+    ).order_by('ordem', 'nome')
+    
+    dados = {
+        'cidade': cidade,
+        'total': bairros.count(),
+        'bairros': [
+            {
+                'id': bairro.id,
+                'nome': bairro.nome,
+                'codigo': bairro.codigo,
+            }
+            for bairro in bairros
+        ]
     }
     
     # Armazenar em cache por 1 hora

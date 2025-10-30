@@ -6,6 +6,7 @@ urlpatterns = [
     
     # Opções de cadastro
     path('opcoes/', views.listar_opcoes_cadastro, name='listar_opcoes_cadastro'),
+    path('bairros/<str:cidade>/', views.listar_bairros_cidade, name='listar_bairros_cidade'),
     
     # Registro
     path('registro/iniciar/', views.iniciar_registro, name='iniciar_registro'),
