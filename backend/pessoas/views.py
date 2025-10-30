@@ -21,7 +21,7 @@ from .serializers import (
     CategoriaInteresseSerializer,
     LocalizacaoInteresseSerializer,
 )
-from .email_service import enviar_codigo_verificacao, verificar_codigo
+from .email_service import enviar_codigo_verificacao, verificar_codigo, enviar_link_ativacao
 
 
 # ============== ENDPOINTS PÚBLICOS (SEM AUTENTICAÇÃO) ==============
@@ -77,22 +77,23 @@ def listar_opcoes_cadastro(request):
 
 @extend_schema(
     operation_id='iniciar_registro',
-    summary='1️⃣ Iniciar Registro',
+    summary='📝 Criar Conta',
     description='''
-    ETAPA 1 de 2: Envia os dados de cadastro e recebe código por email.
+    Cria uma conta e envia link de ativação por email.
     
     **Fluxo:**
     1. Preencha todos os campos obrigatórios
-    2. Sistema valida os dados
-    3. Código de 6 dígitos é enviado para o email
-    4. Use o código na próxima etapa (confirmar_registro)
+    2. Sistema valida os dados e salva temporariamente
+    3. Link de ativação é enviado para o email
+    4. Clique no link para ativar a conta
+    5. Após ativação, é redirecionado para o frontend já autenticado
     
     **ENDPOINT PÚBLICO** - não requer autenticação
     ''',
     tags=['Cadastro - Público'],
     request=RegistroComCodigoSerializer,
     responses={
-        200: OpenApiResponse(description="Código enviado para o email"),
+        200: OpenApiResponse(description="Link de ativação enviado para o email"),
         400: OpenApiResponse(description="Erro de validação")
     }
 )
@@ -100,7 +101,7 @@ def listar_opcoes_cadastro(request):
 @permission_classes([AllowAny])
 def iniciar_registro(request):
     """
-    ETAPA 1: Valida dados e envia código de verificação por email
+    Valida dados e envia link de ativação por email
     ENDPOINT PÚBLICO - não requer autenticação
     """
     serializer = RegistroComCodigoSerializer(data=request.data)
@@ -110,12 +111,12 @@ def iniciar_registro(request):
     
     email = serializer.validated_data['email']
     
-    # Armazenar dados temporariamente em cache (expira em 15 minutos)
+    # Armazenar dados temporariamente em cache (expira em 24 horas)
     cache_key = f'registro_pendente_{email}'
-    cache.set(cache_key, serializer.validated_data, 60 * 15)
+    cache.set(cache_key, serializer.validated_data, 60 * 60 * 24)
     
-    # Enviar código de verificação
-    sucesso, mensagem, codigo_obj = enviar_codigo_verificacao(email, tipo='cadastro')
+    # Enviar link de ativação
+    sucesso, mensagem, codigo_obj = enviar_link_ativacao(email, tipo='cadastro')
     
     if not sucesso:
         return Response(
@@ -124,10 +125,10 @@ def iniciar_registro(request):
         )
     
     return Response({
-        'message': 'Código de verificação enviado para seu email',
+        'message': 'Link de ativação enviado para seu email',
         'email': email,
-        'validade': '10 minutos',
-        'proximo_passo': 'Use o endpoint /api/auth/confirmar-registro/ com o código recebido'
+        'validade': '24 horas',
+        'proximo_passo': 'Clique no link enviado para ativar sua conta'
     }, status=status.HTTP_200_OK)
 
 
@@ -221,6 +222,180 @@ def confirmar_registro(request):
     except Exception as e:
         return Response(
             {'error': f'Erro ao criar conta: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@extend_schema(
+    operation_id='ativar_conta',
+    summary='✅ Ativar Conta',
+    description='''
+    Ativa a conta do usuário via token enviado por email.
+    
+    **Fluxo:**
+    1. Usuário clica no link de ativação recebido por email
+    2. Sistema valida o token
+    3. Conta é criada e ativada
+    4. Retorna tokens JWT para login automático
+    5. Frontend deve redirecionar para a página inicial já autenticado
+    
+    **ENDPOINT PÚBLICO** - não requer autenticação
+    ''',
+    tags=['Cadastro - Público'],
+    responses={
+        200: OpenApiResponse(description="Conta ativada com sucesso"),
+        400: OpenApiResponse(description="Token inválido ou expirado")
+    }
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@transaction.atomic
+def ativar_conta(request, token):
+    """
+    Ativa conta via token único
+    ENDPOINT PÚBLICO - não requer autenticação
+    """
+    try:
+        # Buscar token
+        codigo_obj = CodigoVerificacao.objects.filter(
+            token=token,
+            tipo='cadastro',
+            usado=False
+        ).first()
+        
+        if not codigo_obj:
+            return Response({
+                'error': 'Token inválido ou já utilizado'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verificar validade
+        valido, mensagem = codigo_obj.esta_valido()
+        
+        if not valido:
+            return Response({'error': mensagem}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Recuperar dados do registro do cache
+        cache_key = f'registro_pendente_{codigo_obj.email}'
+        dados_registro = cache.get(cache_key)
+        
+        if not dados_registro:
+            return Response({
+                'error': 'Dados de registro expirados. Inicie o registro novamente.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Criar usuário
+        password = dados_registro.pop('password')
+        categorias = dados_registro.pop('categorias_interesse', [])
+        localizacoes = dados_registro.pop('localizacoes_interesse', [])
+        
+        pessoa = Pessoa.objects.create_user(
+            password=password,
+            **dados_registro
+        )
+        
+        # Adicionar relações ManyToMany
+        if categorias:
+            pessoa.categorias_interesse.set(categorias)
+        if localizacoes:
+            pessoa.localizacoes_interesse.set(localizacoes)
+        
+        # Marcar token como usado
+        codigo_obj.marcar_como_usado()
+        
+        # Limpar cache
+        cache.delete(cache_key)
+        
+        # Gerar tokens JWT
+        refresh = RefreshToken.for_user(pessoa)
+        
+        # Retornar HTML que redireciona para o frontend com os tokens
+        from django.conf import settings
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
+        
+        html_response = f'''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Conta Ativada - Conectades</title>
+            <meta charset="utf-8">
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                }}
+                .container {{
+                    text-align: center;
+                    background: white;
+                    padding: 3rem;
+                    border-radius: 10px;
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+                }}
+                .success {{
+                    color: #10b981;
+                    font-size: 3rem;
+                    margin-bottom: 1rem;
+                }}
+                h1 {{
+                    color: #1f2937;
+                    margin-bottom: 1rem;
+                }}
+                p {{
+                    color: #6b7280;
+                    margin-bottom: 2rem;
+                }}
+                .spinner {{
+                    border: 4px solid #f3f4f6;
+                    border-top: 4px solid #667eea;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto;
+                }}
+                @keyframes spin {{
+                    0% {{ transform: rotate(0deg); }}
+                    100% {{ transform: rotate(360deg); }}
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="success">✅</div>
+                <h1>Conta Ativada com Sucesso!</h1>
+                <p>Bem-vinda à Conectades, {pessoa.nome_exibicao}!</p>
+                <p>Redirecionando para o aplicativo...</p>
+                <div class="spinner"></div>
+            </div>
+            <script>
+                // Salvar tokens no localStorage e redirecionar
+                setTimeout(() => {{
+                    const tokens = {{
+                        access: '{access_token}',
+                        refresh: '{refresh_token}'
+                    }};
+                    const user = {PessoaSerializer(pessoa).data};
+                    
+                    // Redirecionar para o frontend com os dados
+                    window.location.href = '{frontend_url}/auth/ativacao-sucesso?access=' + encodeURIComponent(tokens.access) + '&refresh=' + encodeURIComponent(tokens.refresh);
+                }}, 2000);
+            </script>
+        </body>
+        </html>
+        '''
+        
+        from django.http import HttpResponse
+        return HttpResponse(html_response)
+    
+    except Exception as e:
+        return Response(
+            {'error': f'Erro ao ativar conta: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 

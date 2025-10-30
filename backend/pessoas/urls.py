@@ -7,9 +7,10 @@ urlpatterns = [
     # Opções de cadastro
     path('opcoes/', views.listar_opcoes_cadastro, name='listar_opcoes_cadastro'),
     
-    # Registro em 2 etapas
+    # Registro
     path('registro/iniciar/', views.iniciar_registro, name='iniciar_registro'),
-    path('registro/confirmar/', views.confirmar_registro, name='confirmar_registro'),
+    path('registro/confirmar/', views.confirmar_registro, name='confirmar_registro'),  # Mantido para compatibilidade
+    path('registro/ativar/<uuid:token>/', views.ativar_conta, name='ativar_conta'),
     
     # Autenticação
     path('login/', views.login, name='login'),

@@ -7,6 +7,7 @@ from datetime import timedelta
 import unicodedata
 import random
 import string
+import uuid
 
 class TipoUsuario(models.Model):
     """Tipos de usuário do sistema"""
@@ -356,6 +357,14 @@ class CodigoVerificacao(models.Model):
         verbose_name="Código",
         help_text="Código de 6 dígitos gerado aleatoriamente"
     )
+    token = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        null=True,
+        blank=True,
+        verbose_name="Token",
+        help_text="Token único para ativação via link"
+    )
     tipo = models.CharField(
         max_length=20,
         choices=[
@@ -392,6 +401,7 @@ class CodigoVerificacao(models.Model):
         ordering = ['-data_criacao']
         indexes = [
             models.Index(fields=['email', 'codigo', 'usado']),
+            models.Index(fields=['token', 'usado']),
             models.Index(fields=['data_expiracao']),
         ]
     
@@ -403,8 +413,12 @@ class CodigoVerificacao(models.Model):
             # Gerar código de 6 dígitos
             self.codigo = ''.join(random.choices(string.digits, k=6))
         if not self.data_expiracao:
-            # Código expira em 10 minutos
-            self.data_expiracao = timezone.now() + timedelta(minutes=10)
+            # Para cadastro via link, expira em 24 horas
+            # Para outros tipos (login, recuperacao), expira em 10 minutos
+            if self.tipo == 'cadastro':
+                self.data_expiracao = timezone.now() + timedelta(hours=24)
+            else:
+                self.data_expiracao = timezone.now() + timedelta(minutes=10)
         super().save(*args, **kwargs)
     
     def esta_valido(self):
