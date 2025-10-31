@@ -1,0 +1,87 @@
+name: Test Conectades Main Branch
+
+on:
+  push:
+    branches:
+      - conectades-main
+  pull_request:
+    branches:
+      - conectades-main
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: conectades_test
+          POSTGRES_USER: admin_conectades
+          POSTGRES_PASSWORD: conectaZ0Z6@
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://admin_conectades:conectaZ0Z6@@localhost:5432/conectades_test
+          DJANGO_SETTINGS_MODULE: backend.core.settings
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          cd backend
+          python manage.py migrate --noinput
+      
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://admin_conectades:conectaZ0Z6@@localhost:5432/conectades_test
+          DJANGO_SETTINGS_MODULE: backend.core.settings
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          cd backend
+          python manage.py test
+      
+      - name: Check for linting errors
+        run: |
+          pip install flake8
+          flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 backend --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      
+      - name: Test summary
+        if: always()
+        run: |
+          echo "✅ Testes da branch conectades-main concluídos!"
+

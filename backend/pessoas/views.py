@@ -235,15 +235,18 @@ def iniciar_registro(request):
         # Converter dados para formato serializável (dict com IDs ao invés de objetos)
         dados_cache = {}
         for key, value in serializer.validated_data.items():
+            # Pular valores None
+            if value is None:
+                dados_cache[key] = None
             # Converter objetos Django (ForeignKey) para IDs
-            if hasattr(value, 'pk'):
+            elif hasattr(value, 'pk'):
                 dados_cache[key] = value.pk
             # Converter QuerySets e listas de objetos para listas de IDs
-            elif hasattr(value, '__iter__') and not isinstance(value, (str, dict)):
+            elif hasattr(value, '__iter__') and not isinstance(value, (str, dict, bytes)):
                 try:
                     dados_cache[key] = [item.pk if hasattr(item, 'pk') else item for item in value]
-                except:
-                    dados_cache[key] = list(value)
+                except (TypeError, AttributeError):
+                    dados_cache[key] = value
             else:
                 dados_cache[key] = value
         
