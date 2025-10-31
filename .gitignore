@@ -125,4 +125,3 @@ dmypy.json
 # Arquivos sensíveis
 VALORES_SECRETS.txt
 *secrets*.txt
-*SECRETS*
