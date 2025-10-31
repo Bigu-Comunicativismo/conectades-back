@@ -246,12 +246,12 @@ Consulte `/api/auth/opcoes/` para ver a estrutura completa.
     ],
     "SERVERS": [
         {
-            "url": "http://localhost:8000",
-            "description": "Servidor de Desenvolvimento Local"
+            "url": "http://srv1037558.hstgr.cloud:8001",
+            "description": "Servidor de Desenvolvimento (via Nginx)"
         },
         {
-            "url": "http://localhost:5173",
-            "description": "Proxy Vite (Frontend)"
+            "url": "http://localhost:8001",
+            "description": "Desenvolvimento Local (via Nginx)"
         },
     ],
     "TAGS": [
