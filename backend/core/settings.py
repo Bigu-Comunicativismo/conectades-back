@@ -218,6 +218,10 @@ Consulte `/api/auth/opcoes/` para ver a estrutura completa.
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": "/api/",
     "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    # Usar CDN para Swagger UI (resolve problema de static files)
+    "SWAGGER_UI_DIST": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0",
+    "SWAGGER_UI_FAVICON_HREF": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/favicon-32x32.png",
+    "REDOC_DIST": "https://cdn.jsdelivr.net/npm/redoc@2.1.3",
     "SWAGGER_UI_SETTINGS": {
         "persistAuthorization": True,
         "displayRequestDuration": True,
