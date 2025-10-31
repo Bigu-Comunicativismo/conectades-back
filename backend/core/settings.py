@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'corsheaders',  # CORS support
 
     # Apps locais
+    'backend.core',  # Core app com signals
     'backend.pessoas',
     'backend.campanhas',
     'backend.doacoes',
@@ -60,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'backend.core.middleware.AutoClearCorruptedCacheMiddleware',  # Auto-limpeza de cache corrompido
 ]
 
 ROOT_URLCONF = 'backend.core.urls'
