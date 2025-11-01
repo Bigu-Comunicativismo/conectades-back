@@ -348,13 +348,32 @@ CORS_ALLOW_ALL_ORIGINS = DEBUG  # True em DEV, False em PROD
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://localhost:5173',  # Vite default
+    'http://localhost:8001',  # Nginx local
     'http://127.0.0.1:3000',
     'http://127.0.0.1:5173',
+    'http://127.0.0.1:8001',
+    'http://srv1037558.hstgr.cloud:8001',  # Servidor de desenvolvimento
     # Adicione aqui suas URLs de produção quando houver
 ]
 
 # Permitir credenciais (cookies, authorization headers)
 CORS_ALLOW_CREDENTIALS = True
+
+# ============================================================================
+# CONFIGURAÇÕES CSRF (Cross-Site Request Forgery)
+# ============================================================================
+
+# Origens confiáveis para verificação CSRF (necessário para admin e formulários)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'http://localhost:8001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:8001',
+    'http://srv1037558.hstgr.cloud:8001',
+    # Adicione aqui suas URLs de produção quando houver (use https://)
+]
 
 # Permitir todos os métodos HTTP
 CORS_ALLOW_METHODS = [
