@@ -316,25 +316,44 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # ==========================
+# ============================================================================
 # CONFIGURAÇÃO DE EMAIL
-# ==========================
+# ============================================================================
 
-# Configuração para desenvolvimento (console)
-# Em produção, trocar para SMTP real
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Escolher backend baseado na variável de ambiente
+# Valores possíveis: 'console', 'smtp', 'file'
+email_backend_type = os.getenv('EMAIL_BACKEND', 'console')
 
-# Para usar SMTP real em produção, descomente e configure:
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'  # Ou outro provedor
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'seu-email@gmail.com'
-# EMAIL_HOST_PASSWORD = 'sua-senha-de-app'
+if email_backend_type == 'smtp':
+    # Configuração SMTP (Gmail, SendGrid, Mailgun, etc.)
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+    EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+    EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() in ('true', '1', 'yes')
+    EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() in ('true', '1', 'yes')
+    EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+    
+    if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD:
+        import warnings
+        warnings.warn(
+            "⚠️  EMAIL_BACKEND está configurado como 'smtp', mas EMAIL_HOST_USER ou "
+            "EMAIL_HOST_PASSWORD não foram definidos. Emails não serão enviados!",
+            RuntimeWarning
+        )
+elif email_backend_type == 'file':
+    # Salvar emails em arquivos (útil para desenvolvimento)
+    EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+    EMAIL_FILE_PATH = os.getenv('EMAIL_FILE_PATH', BASE_DIR / 'sent_emails')
+else:
+    # Console (padrão para desenvolvimento) - apenas imprime no log
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-DEFAULT_FROM_EMAIL = 'noreply@conectades.com'
-SERVER_EMAIL = 'admin@conectades.com'
-SITE_URL = 'http://localhost:8001'  # URL base do site (ajustar em produção)
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')  # URL do frontend para redirecionamento
+# Configurações gerais de email
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@conectades.com')
+SERVER_EMAIL = os.getenv('SERVER_EMAIL', 'admin@conectades.com')
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:8001')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # ============================================================================
 # CONFIGURAÇÕES CORS (Cross-Origin Resource Sharing)
