@@ -5,7 +5,6 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from django.core.cache import cache
-from django.views.decorators.cache import cache_page
 from django.conf import settings
 from django.db.models import Q
 from .models import TipoServico, Doacao, DoacaoIndependente
@@ -234,12 +233,19 @@ def detalhar_doacao(request, doacao_id: int):
 )
 @api_view(['GET'])
 @permission_classes([AllowAny])
-@cache_page(settings.CACHE_TTL)
 def listar_tipos_servico(request):
-    """Lista todos os tipos de serviço ativos"""
-    tipos = TipoServico.objects.filter(ativo=True).order_by('ordem', 'nome')
-    serializer = TipoServicoSerializer(tipos, many=True)
-    return Response(serializer.data)
+    """Lista todos os tipos de serviço ativos com cache manual"""
+    cache_key = 'tipos_servico_all'
+    cached_data = cache.get(cache_key)
+    
+    if cached_data is None:
+        tipos = TipoServico.objects.filter(ativo=True).order_by('ordem', 'nome')
+        serializer = TipoServicoSerializer(tipos, many=True)
+        # Armazenar apenas os dados serializados (dicionário Python)
+        cached_data = serializer.data
+        cache.set(cache_key, cached_data, settings.CACHE_TTL)
+    
+    return Response(cached_data)
 
 
 @extend_schema(
@@ -263,8 +269,8 @@ def criar_tipo_servico(request):
     serializer = TipoServicoSerializer(data=request.data)
     if serializer.is_valid():
         tipo = serializer.save()
-        # Invalidar cache
-        cache.delete('tipos_servico')
+        # Invalidar cache (usar mesma chave da listagem)
+        cache.delete('tipos_servico_all')
         return Response(TipoServicoSerializer(tipo).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
