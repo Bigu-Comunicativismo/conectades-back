@@ -350,8 +350,13 @@ else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Configurações gerais de email
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@conectades.com')
-SERVER_EMAIL = os.getenv('SERVER_EMAIL', 'admin@conectades.com')
+# Em SMTP, usar o mesmo email do HOST_USER para evitar rejeição
+if email_backend_type == 'smtp' and EMAIL_HOST_USER:
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+else:
+    DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@conectades.com')
+
+SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8001')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
