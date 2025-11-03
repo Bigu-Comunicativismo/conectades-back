@@ -1,8 +1,9 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiRequest
 from drf_spectacular.types import OpenApiTypes
 from django.core.cache import cache
 from django.conf import settings
@@ -13,9 +14,27 @@ from .serializers_solicitacao import SolicitacaoRespostaSerializer
 @extend_schema(
     operation_id='criar_campanha',
     summary='Criar Campanha',
-    description='Cria uma nova campanha. A organizadora é preenchida automaticamente com o usuário atual.',
+    description='Cria uma nova campanha. A organizadora é preenchida automaticamente com o usuário atual. Envie a imagem como arquivo multipart/form-data.',
     tags=['Campanhas'],
-    request=CampanhaSerializer,
+    request={
+        'multipart/form-data': {
+            'type': 'object',
+            'properties': {
+                'titulo': {'type': 'string', 'description': 'Título da campanha'},
+                'subtitulo': {'type': 'string', 'description': 'Subtítulo da campanha'},
+                'descricao': {'type': 'string', 'description': 'Descrição detalhada da campanha'},
+                'beneficiaria_id': {'type': 'integer', 'description': 'ID da beneficiária (opcional)', 'nullable': True},
+                'imagem': {'type': 'string', 'format': 'binary', 'description': 'Arquivo de imagem (PNG, JPG, JPEG, GIF, WEBP)'},
+                'categorias': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das categorias'},
+                'whatsapp': {'type': 'string', 'description': 'WhatsApp de contato', 'nullable': True},
+                'localizacao': {'type': 'integer', 'description': 'ID da localização', 'nullable': True},
+                'data_inicio': {'type': 'string', 'format': 'date-time', 'description': 'Data de início da campanha'},
+                'prazo': {'type': 'string', 'format': 'date-time', 'description': 'Data de término da campanha'},
+                'ativa': {'type': 'boolean', 'description': 'Se a campanha está ativa', 'default': True},
+            },
+            'required': ['titulo', 'descricao', 'data_inicio', 'prazo']
+        }
+    },
     responses={
         201: CampanhaSerializer,
         400: OpenApiTypes.OBJECT,
@@ -23,6 +42,7 @@ from .serializers_solicitacao import SolicitacaoRespostaSerializer
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 def criar_campanha(request):
     """API para criar campanha. Doadoras e Beneficiárias podem criar campanhas."""
     from backend.pessoas.models import TipoUsuario

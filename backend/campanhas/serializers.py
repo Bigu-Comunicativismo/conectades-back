@@ -59,6 +59,11 @@ class CampanhaSerializer(serializers.ModelSerializer):
     descricao = serializers.CharField(
         help_text="Descrição detalhada da campanha"
     )
+    imagem = serializers.ImageField(
+        required=False,
+        allow_null=True,
+        help_text="Arquivo de imagem da campanha (PNG, JPG, JPEG, GIF, WEBP)"
+    )
     
     # Campos calculados
     percentual_atingido = serializers.SerializerMethodField(read_only=True)
