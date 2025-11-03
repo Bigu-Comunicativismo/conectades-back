@@ -1,6 +1,23 @@
 from rest_framework import serializers
 from .models import Organizadora, Campanha, ItemCampanha
+from backend.doacoes.models import Doacao
 from backend.pessoas.serializers import PessoaSerializer
+
+
+class DoacaoSerializer(serializers.ModelSerializer):
+    """Serializer para doações"""
+    doador = PessoaSerializer(read_only=True)
+    item_nome = serializers.CharField(source='item_campanha.nome', read_only=True)
+    item_unidade = serializers.CharField(source='item_campanha.unidade', read_only=True)
+    
+    class Meta:
+        model = Doacao
+        fields = [
+            'id', 'doador', 'item_campanha', 'item_nome', 'item_unidade',
+            'quantidade', 'unidade', 'observacoes', 'status', 
+            'data_doacao', 'data_entrega'
+        ]
+        read_only_fields = ['id', 'data_doacao', 'data_entrega']
 
 
 class ItemCampanhaSerializer(serializers.ModelSerializer):
@@ -72,6 +89,7 @@ class CampanhaSerializer(serializers.ModelSerializer):
     itens_completos = serializers.SerializerMethodField(read_only=True)
     dias_restantes = serializers.SerializerMethodField(read_only=True)
     itens = ItemCampanhaSerializer(many=True, read_only=True)
+    doacoes = DoacaoSerializer(many=True, read_only=True)
     
     def get_percentual_atingido(self, obj):
         return obj.percentual_atingido
@@ -97,10 +115,10 @@ class CampanhaSerializer(serializers.ModelSerializer):
             'imagem', 'categorias', 'whatsapp', 'localizacao',
             'data_inicio', 'prazo', 'dias_restantes',
             'percentual_atingido', 'status_campanha', 
-            'total_itens', 'itens_completos', 'itens',
+            'total_itens', 'itens_completos', 'itens', 'doacoes',
             'ativa'
         ]
-        read_only_fields = ['id', 'beneficiaria', 'percentual_atingido', 'status_campanha', 'total_itens', 'itens_completos', 'dias_restantes']
+        read_only_fields = ['id', 'beneficiaria', 'percentual_atingido', 'status_campanha', 'total_itens', 'itens_completos', 'dias_restantes', 'doacoes']
     
     def create(self, validated_data):
         organizadora_id = validated_data.pop('organizadora_id')

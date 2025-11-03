@@ -1,9 +1,28 @@
 from django.contrib import admin
 from django.contrib import messages
-from .models import Organizadora, Campanha, Imagem, ItemCampanha, PostAtualizacao, SolicitacaoBeneficiaria
+from .models import Organizadora, Campanha, Imagem, ItemCampanha, PostAtualizacao, SolicitacaoBeneficiaria, Doacao
 
 # Organizadora NÃO aparece no admin - é criada automaticamente
 # quando uma Doadora cria sua primeira campanha
+
+@admin.register(Doacao)
+class DoacaoAdmin(admin.ModelAdmin):
+    list_display = ('get_resumo', 'doadora', 'campanha', 'quantidade_info', 'status', 'data_criacao')
+    list_filter = ('status', 'data_criacao', 'campanha')
+    search_fields = ('doadora__nome_completo', 'campanha__titulo', 'item__nome', 'mensagem')
+    date_hierarchy = 'data_criacao'
+    readonly_fields = ('data_criacao',)
+    
+    def get_resumo(self, obj):
+        return f"{obj.doadora.nome_exibicao} → {obj.item.nome}"
+    get_resumo.short_description = 'Doação'
+    
+    def quantidade_info(self, obj):
+        return f"{obj.quantidade} {obj.item.unidade}"
+    quantidade_info.short_description = 'Quantidade'
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('doadora', 'campanha', 'item')
 
 @admin.register(Imagem)
 class ImagemAdmin(admin.ModelAdmin):
