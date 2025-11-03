@@ -152,6 +152,65 @@ def minhas_campanhas(request):
     
     return Response(cached_data)
 
+@extend_schema(
+    operation_id='detalhar_campanha',
+    summary='Detalhar Campanha',
+    description='Retorna os detalhes completos de uma campanha específica por ID com cache.',
+    tags=['Campanhas'],
+    responses={
+        200: CampanhaSerializer,
+        404: OpenApiTypes.OBJECT,
+    }
+)
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def detalhar_campanha(request, campanha_id: int):
+    """API para obter detalhes de uma campanha específica com cache"""
+    cache_key = f'campanha_detail_{campanha_id}'
+    cached_data = cache.get(cache_key)
+    
+    if cached_data is None:
+        try:
+            # Query otimizada com select_related e prefetch_related
+            campanha = Campanha.objects.select_related(
+                'organizadora__pessoa',
+                'beneficiaria'
+            ).prefetch_related(
+                'doacoes', 'itens'
+            ).get(id=campanha_id)
+            
+            # Verificar se a campanha é publicada (ou se o usuário é o dono)
+            if not campanha.publicada:
+                # Se não está publicada, só o dono pode ver
+                if not request.user.is_authenticated:
+                    return Response({
+                        'error': 'Campanha não encontrada ou não publicada'
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                try:
+                    organizadora = Organizadora.objects.get(pessoa=request.user)
+                    if campanha.organizadora != organizadora:
+                        return Response({
+                            'error': 'Campanha não encontrada ou não publicada'
+                        }, status=status.HTTP_404_NOT_FOUND)
+                except Organizadora.DoesNotExist:
+                    return Response({
+                        'error': 'Campanha não encontrada ou não publicada'
+                    }, status=status.HTTP_404_NOT_FOUND)
+            
+            serializer = CampanhaSerializer(campanha)
+            cached_data = serializer.data
+            
+            # Cache por 1 hora
+            cache.set(cache_key, cached_data, settings.CACHE_TTL)
+            
+        except Campanha.DoesNotExist:
+            return Response({
+                'error': 'Campanha não encontrada'
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    return Response(cached_data)
+
 
 
 @extend_schema(
