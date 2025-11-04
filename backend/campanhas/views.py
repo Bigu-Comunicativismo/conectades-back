@@ -3,10 +3,11 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, OpenApiRequest
+from drf_spectacular.utils import extend_schema, OpenApiRequest, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.core.cache import cache
 from django.conf import settings
+from django.db.models import Q
 from .models import Organizadora, Campanha, ItemCampanha, SolicitacaoBeneficiaria
 from .serializers import OrganizadoraSerializer, CampanhaSerializer, ItemCampanhaSerializer
 from .serializers_solicitacao import SolicitacaoRespostaSerializer
@@ -100,8 +101,24 @@ def criar_campanha(request):
 @extend_schema(
     operation_id='listar_campanhas',
     summary='Listar Todas as Campanhas',
-    description='Lista todas as campanhas do sistema com cache e otimizações.',
+    description='''
+    Lista todas as campanhas do sistema com filtros, busca e ordenação.
+    
+    **Query Params:**
+    - `busca`: Busca por título ou descrição
+    - `categoria`: ID da categoria para filtrar
+    - `localizacao`: ID da localização para filtrar
+    - `status`: Status da campanha (ativa, encerrada, todas)
+    - `ordenar`: Campo de ordenação (recente, antiga, prazo, progresso)
+    ''',
     tags=['Campanhas'],
+    parameters=[
+        OpenApiParameter(name='busca', type=str, description='Busca por título ou descrição', required=False),
+        OpenApiParameter(name='categoria', type=int, description='Filtrar por ID da categoria', required=False),
+        OpenApiParameter(name='localizacao', type=int, description='Filtrar por ID da localização', required=False),
+        OpenApiParameter(name='status', type=str, description='Filtrar por status: ativa, encerrada, todas', required=False, enum=['ativa', 'encerrada', 'todas']),
+        OpenApiParameter(name='ordenar', type=str, description='Ordenar por: recente, antiga, prazo, progresso', required=False, enum=['recente', 'antiga', 'prazo', 'progresso']),
+    ],
     responses={
         200: CampanhaSerializer(many=True),
     }
@@ -109,19 +126,61 @@ def criar_campanha(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def listar_campanhas(request):
-    """API para listar campanhas com cache e otimizações. Mostra apenas campanhas publicadas."""
-    cache_key = 'campanhas_all'
+    """API para listar campanhas com filtros, busca e ordenação."""
+    
+    # Obter query params
+    busca = request.query_params.get('busca', None)
+    categoria_id = request.query_params.get('categoria', None)
+    localizacao_id = request.query_params.get('localizacao', None)
+    status_filtro = request.query_params.get('status', 'ativa')  # Padrão: apenas ativas
+    ordenar = request.query_params.get('ordenar', 'recente')  # Padrão: mais recentes
+    
+    # Montar cache key baseado nos filtros
+    cache_key = f'campanhas_{busca}_{categoria_id}_{localizacao_id}_{status_filtro}_{ordenar}'
     cached_data = cache.get(cache_key)
     
     if cached_data is None:
-        # Query otimizada com select_related e prefetch_related
-        # Mostra apenas campanhas publicadas e ativas
+        # Query base otimizada
         campanhas = Campanha.objects.select_related(
             'organizadora__pessoa',
             'beneficiaria'
         ).prefetch_related(
             'doacoes', 'itens'
-        ).filter(publicada=True, ativa=True)
+        ).filter(publicada=True)
+        
+        # Filtro por status
+        if status_filtro == 'ativa':
+            campanhas = campanhas.filter(ativa=True)
+        elif status_filtro == 'encerrada':
+            campanhas = campanhas.filter(ativa=False)
+        # Se 'todas', não filtra por ativa
+        
+        # Filtro por categoria
+        if categoria_id:
+            campanhas = campanhas.filter(categorias__id=categoria_id)
+        
+        # Filtro por localização
+        if localizacao_id:
+            campanhas = campanhas.filter(localizacao_id=localizacao_id)
+        
+        # Busca por título ou descrição
+        if busca:
+            campanhas = campanhas.filter(
+                Q(titulo__icontains=busca) | Q(descricao__icontains=busca)
+            )
+        
+        # Ordenação
+        if ordenar == 'recente':
+            campanhas = campanhas.order_by('-data_inicio')
+        elif ordenar == 'antiga':
+            campanhas = campanhas.order_by('data_inicio')
+        elif ordenar == 'prazo':
+            campanhas = campanhas.order_by('prazo')
+        elif ordenar == 'progresso':
+            # Ordenar por percentual (requer anotação personalizada)
+            campanhas = campanhas.order_by('-data_inicio')  # Fallback
+        else:
+            campanhas = campanhas.order_by('-data_inicio')
         
         serializer = CampanhaSerializer(campanhas, many=True)
         cached_data = serializer.data
