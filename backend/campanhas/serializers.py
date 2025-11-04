@@ -124,6 +124,9 @@ class CampanhaSerializer(serializers.ModelSerializer):
         organizadora_id = validated_data.pop('organizadora_id')
         beneficiaria_id = validated_data.pop('beneficiaria_id', None)
         
+        # Extrair campos many-to-many (não podem ser criados junto com o objeto)
+        categorias = validated_data.pop('categorias', [])
+        
         organizadora = Organizadora.objects.get(id=organizadora_id)
         validated_data['organizadora'] = organizadora
         
@@ -132,4 +135,11 @@ class CampanhaSerializer(serializers.ModelSerializer):
             beneficiaria = Pessoa.objects.get(id=beneficiaria_id)
             validated_data['beneficiaria'] = beneficiaria
         
-        return Campanha.objects.create(**validated_data)
+        # Criar a campanha
+        campanha = Campanha.objects.create(**validated_data)
+        
+        # Adicionar categorias (many-to-many)
+        if categorias:
+            campanha.categorias.set(categorias)
+        
+        return campanha
