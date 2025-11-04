@@ -1,9 +1,10 @@
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from django.core.cache import cache
 from django.db import transaction
 from django.conf import settings
@@ -208,16 +209,44 @@ def listar_bairros_cidade(request, cidade):
     4. Clique no link para ativar a conta
     5. Após ativação, é redirecionado para o frontend já autenticado
     
+    **Upload de Avatar:**
+    - Formato aceito: `multipart/form-data`
+    - Campo `avatar`: arquivo de imagem (JPG, PNG, etc.)
+    - Outros campos: valores normais (text)
+    
     **ENDPOINT PÚBLICO** - não requer autenticação
     ''',
     tags=['Cadastro - Público'],
-    request=RegistroComCodigoSerializer,
+    request={
+        'multipart/form-data': {
+            'type': 'object',
+            'properties': {
+                'email': {'type': 'string', 'format': 'email', 'description': 'Email válido (receberá código de verificação)'},
+                'username': {'type': 'string', 'minLength': 3, 'description': 'Nome de usuário único'},
+                'password': {'type': 'string', 'minLength': 8, 'format': 'password', 'description': 'Senha forte'},
+                'nome_completo': {'type': 'string', 'description': 'Nome completo'},
+                'cpf': {'type': 'string', 'description': 'CPF (formato: 000.000.000-00)'},
+                'telefone': {'type': 'string', 'description': 'Telefone com DDD'},
+                'tipo_usuario': {'type': 'integer', 'description': 'ID do tipo de usuário'},
+                'genero': {'type': 'integer', 'description': 'ID do gênero'},
+                'cidade': {'type': 'string', 'description': 'Cidade onde mora'},
+                'bairro': {'type': 'string', 'description': 'Bairro onde mora'},
+                'nome_social': {'type': 'string', 'description': 'Nome social'},
+                'mini_bio': {'type': 'string', 'description': 'Mini biografia'},
+                'avatar': {'type': 'string', 'format': 'binary', 'description': '📸 Foto de perfil (arquivo de imagem)'},
+                'categorias_interesse': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das categorias de interesse'},
+                'localizacoes_interesse': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das localizações de interesse'},
+            },
+            'required': ['email', 'username', 'password', 'nome_completo', 'cpf', 'telefone', 'tipo_usuario', 'genero', 'cidade', 'bairro', 'nome_social', 'mini_bio']
+        }
+    },
     responses={
         200: OpenApiResponse(description="Link de ativação enviado para o email"),
         400: OpenApiResponse(description="Erro de validação")
     }
 )
 @api_view(['POST'])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 @permission_classes([AllowAny])
 def iniciar_registro(request):
     """
@@ -859,12 +888,20 @@ def meu_perfil(request):
 @extend_schema(
     operation_id='atualizar_perfil',
     summary='✏️ Atualizar Perfil',
-    description='Atualiza dados do usuário logado',
+    description='''
+    Atualiza dados do usuário logado.
+    
+    **Upload de Avatar:**
+    - Formato aceito: `multipart/form-data` (para upload de imagem)
+    - Campo `avatar`: arquivo de imagem (JPG, PNG, etc.)
+    - Outros campos: valores normais (text)
+    ''',
     tags=['Perfil - Protegido'],
     request=PessoaSerializer,
     responses={200: PessoaSerializer}
 )
 @api_view(['PUT', 'PATCH'])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 @permission_classes([IsAuthenticated])
 def atualizar_perfil(request):
     """
