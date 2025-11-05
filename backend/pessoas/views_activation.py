@@ -215,26 +215,40 @@ def ativar_conta_via_link(request, token):
         
         # Criar a conta do usuário
         with transaction.atomic():
-            from .models import Pessoa
+            from .models import Pessoa, TipoUsuario, Genero
             from rest_framework_simplejwt.tokens import RefreshToken
             
-            # Criar usuário
+            # Criar usuário básico primeiro
             user = Pessoa.objects.create_user(
                 username=dados_registro['email'],
                 email=dados_registro['email'],
                 password=dados_registro['password'],
-                nome_completo=dados_registro['nome_completo'],
-                cpf=dados_registro.get('cpf', ''),
-                telefone=dados_registro.get('telefone', ''),
-                data_nascimento=dados_registro.get('data_nascimento'),
-                nome_social=dados_registro.get('nome_social', dados_registro['nome_completo']),
-                mini_bio=dados_registro.get('mini_bio', ''),
-                cidade=dados_registro.get('cidade', ''),
-                bairro=dados_registro.get('bairro', ''),
-                tipo_usuario_id=dados_registro.get('tipo_usuario'),
-                genero_id=dados_registro.get('genero'),
                 is_active=True  # Ativar a conta
             )
+            
+            # Configurar campos adicionais
+            user.nome_completo = dados_registro['nome_completo']
+            user.cpf = dados_registro.get('cpf', '')
+            user.telefone = dados_registro.get('telefone', '')
+            user.nome_social = dados_registro.get('nome_social', dados_registro['nome_completo'])
+            user.mini_bio = dados_registro.get('mini_bio', '')
+            user.cidade = dados_registro.get('cidade', '')
+            user.bairro = dados_registro.get('bairro', '')
+            
+            # Data de nascimento (se existir)
+            if dados_registro.get('data_nascimento'):
+                user.data_nascimento = dados_registro['data_nascimento']
+            
+            # Tipo de usuário
+            if dados_registro.get('tipo_usuario'):
+                user.tipo_usuario = TipoUsuario.objects.get(id=dados_registro['tipo_usuario'])
+            
+            # Gênero
+            if dados_registro.get('genero'):
+                user.genero = Genero.objects.get(id=dados_registro['genero'])
+            
+            # Salvar usuário com todos os campos
+            user.save()
             
             # Adicionar categorias e localizações de interesse
             if 'categorias_interesse' in dados_registro:
