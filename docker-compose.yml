@@ -52,6 +52,8 @@ services:
   # Django Application (Uvicorn)
   web:
     build: .
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: conectades
       POSTGRES_USER: admin_conectades
