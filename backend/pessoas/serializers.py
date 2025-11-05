@@ -223,10 +223,6 @@ class RegistroComCodigoSerializer(serializers.Serializer):
         help_text="Nome social (como prefere ser chamada) - opcional"
     )
     mini_bio = serializers.CharField(help_text="Mini biografia")
-    data_nascimento = serializers.DateField(
-        required=False,
-        help_text="Data de nascimento (formato: YYYY-MM-DD)"
-    )
     
     # Campos opcionais
     avatar = serializers.ImageField(required=False, help_text="Foto de perfil")
