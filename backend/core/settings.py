@@ -359,7 +359,8 @@ else:
 
 SERVER_EMAIL = os.getenv('SERVER_EMAIL', DEFAULT_FROM_EMAIL)
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8001')
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+# FRONTEND_URL: Se não definido, usa SITE_URL (backend serve página HTML de ativação)
+FRONTEND_URL = os.getenv('FRONTEND_URL', SITE_URL)
 
 # ============================================================================
 # CONFIGURAÇÕES CORS (Cross-Origin Resource Sharing)

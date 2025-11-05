@@ -24,6 +24,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from .health_check import health_check, simple_health_check
+from backend.pessoas.views_activation import ativar_conta_via_link
 
 urlpatterns = [
     # Health checks (para monitoramento e load balancers)
@@ -31,6 +32,9 @@ urlpatterns = [
     path('ping/', simple_health_check, name='simple_health_check'),
     
     path('admin/', admin.site.urls),
+    
+    # Ativação de conta via link do email (página HTML)
+    path('auth/ativar/<uuid:token>/', ativar_conta_via_link, name='ativar_conta_link'),
     
     # APIs Públicas (sem autenticação)
     path('api/auth/', include('backend.pessoas.urls')),  # Mudou de /cadastro/ para /auth/
