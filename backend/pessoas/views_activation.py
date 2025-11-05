@@ -28,6 +28,7 @@ def ativar_conta_via_link(request, token):
     URL: /auth/ativar/<token>/
     """
     try:
+        logger.info(f"🔍 Tentando ativar conta com token: {token}")
         # Buscar o código de verificação pelo token
         codigo_verificacao = CodigoVerificacao.objects.filter(
             token=token,
@@ -320,7 +321,9 @@ def ativar_conta_via_link(request, token):
         """, content_type="text/html")
         
     except Exception as e:
+        import traceback
         logger.error(f"❌ Erro ao ativar conta via link: {e}")
+        logger.error(f"Stack trace: {traceback.format_exc()}")
         return HttpResponse(f"""
             <!DOCTYPE html>
             <html lang="pt-BR">
