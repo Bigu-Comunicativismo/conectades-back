@@ -238,7 +238,7 @@ def listar_bairros_cidade(request, cidade):
                 'categorias_interesse': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das categorias de interesse'},
                 'localizacoes_interesse': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das localizações de interesse'},
             },
-            'required': ['email', 'username', 'password', 'nome_completo', 'cpf', 'telefone', 'tipo_usuario', 'genero', 'cidade', 'bairro', 'nome_social', 'mini_bio']
+            'required': ['email', 'username', 'password', 'nome_completo', 'cpf', 'telefone', 'tipo_usuario', 'genero', 'cidade', 'bairro', 'mini_bio']
         }
     },
     responses={
