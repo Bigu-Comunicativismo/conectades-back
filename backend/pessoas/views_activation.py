@@ -245,10 +245,6 @@ def ativar_conta_via_link(request, token):
                 bairro=dados_registro.get('bairro', ''),
             )
             
-            # Data de nascimento (se existir)
-            if dados_registro.get('data_nascimento'):
-                user.data_nascimento = dados_registro['data_nascimento']
-            
             # Salvar usuário
             user.save()
             
