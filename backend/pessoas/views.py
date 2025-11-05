@@ -233,6 +233,7 @@ def listar_bairros_cidade(request, cidade):
                 'bairro': {'type': 'string', 'description': 'Bairro onde mora'},
                 'nome_social': {'type': 'string', 'description': 'Nome social'},
                 'mini_bio': {'type': 'string', 'description': 'Mini biografia'},
+                'data_nascimento': {'type': 'string', 'format': 'date', 'description': 'Data de nascimento (formato: YYYY-MM-DD)'},
                 'avatar': {'type': 'string', 'format': 'binary', 'description': '📸 Foto de perfil (arquivo de imagem)'},
                 'categorias_interesse': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das categorias de interesse'},
                 'localizacoes_interesse': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das localizações de interesse'},
