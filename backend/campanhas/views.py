@@ -80,6 +80,15 @@ def criar_campanha(request):
     if serializer.is_valid():
         campanha = serializer.save()
         
+        # AUTO-PUBLICAR campanha se:
+        # 1. Não há beneficiária (campanha sem beneficiária específica)
+        # 2. Organizadora É a beneficiária (beneficiária criando campanha para si mesma)
+        if not campanha.beneficiaria or campanha.beneficiaria == request.user:
+            campanha.publicada = True
+            if campanha.beneficiaria == request.user:
+                campanha.beneficiaria_confirmada = True
+            campanha.save(update_fields=['publicada', 'beneficiaria_confirmada'])
+        
         # Invalidar cache de listagens
         cache.delete_many([
             'campanhas_all',
@@ -90,10 +99,16 @@ def criar_campanha(request):
         if created:
             message += ' 🎉 Você agora é uma Organizadora!'
         
+        if campanha.publicada:
+            message += ' ✅ Campanha publicada e visível para todos!'
+        else:
+            message += ' ⏳ Aguardando confirmação da beneficiária para publicação.'
+        
         return Response({
             'message': message,
             'data': CampanhaSerializer(campanha).data,
-            'organizadora_criada': created
+            'organizadora_criada': created,
+            'publicada': campanha.publicada
         }, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
