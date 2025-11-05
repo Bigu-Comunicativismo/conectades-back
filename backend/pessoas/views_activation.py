@@ -224,15 +224,15 @@ def ativar_conta_via_link(request, token):
                 email=dados_registro['email'],
                 password=dados_registro['password'],
                 nome_completo=dados_registro['nome_completo'],
-                cpf=dados_registro['cpf'],
-                telefone=dados_registro['telefone'],
-                data_nascimento=dados_registro['data_nascimento'],
+                cpf=dados_registro.get('cpf', ''),
+                telefone=dados_registro.get('telefone', ''),
+                data_nascimento=dados_registro.get('data_nascimento'),
                 nome_social=dados_registro.get('nome_social', dados_registro['nome_completo']),
                 mini_bio=dados_registro.get('mini_bio', ''),
                 cidade=dados_registro.get('cidade', ''),
                 bairro=dados_registro.get('bairro', ''),
-                tipo_usuario_id=dados_registro['tipo_usuario'],
-                genero_id=dados_registro['genero'],
+                tipo_usuario_id=dados_registro.get('tipo_usuario'),
+                genero_id=dados_registro.get('genero'),
                 is_active=True  # Ativar a conta
             )
             
