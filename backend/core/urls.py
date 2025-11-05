@@ -34,7 +34,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # Ativação de conta via link do email (página HTML)
-    path('auth/ativar/<uuid:token>/', ativar_conta_via_link, name='ativar_conta_link'),
+    path('auth/ativar/<str:token>/', ativar_conta_via_link, name='ativar_conta_link'),
     
     # APIs Públicas (sem autenticação)
     path('api/auth/', include('backend.pessoas.urls')),  # Mudou de /cadastro/ para /auth/
