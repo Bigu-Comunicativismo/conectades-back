@@ -15,7 +15,21 @@ from .serializers_solicitacao import SolicitacaoRespostaSerializer
 @extend_schema(
     operation_id='criar_campanha',
     summary='Criar Campanha',
-    description='Cria uma nova campanha. A organizadora é preenchida automaticamente com o usuário atual. Envie a imagem como arquivo multipart/form-data.',
+    description='''
+    Cria uma nova campanha com itens opcionais.
+    
+    **Multipart/Form-Data:**
+    - Envie a imagem como arquivo (`imagem_arquivo`)
+    - Envie itens como JSON string no campo `itens_cadastro`
+    
+    **Exemplo de `itens_cadastro` (JSON string):**
+    ```json
+    [
+        {"nome": "Arroz tipo 1", "quantidade_solicitada": 50, "unidade": "kg"},
+        {"nome": "Feijão carioca", "quantidade_solicitada": 30, "unidade": "kg"}
+    ]
+    ```
+    ''',
     tags=['Campanhas'],
     request={
         'multipart/form-data': {
@@ -25,13 +39,15 @@ from .serializers_solicitacao import SolicitacaoRespostaSerializer
                 'subtitulo': {'type': 'string', 'description': 'Subtítulo da campanha'},
                 'descricao': {'type': 'string', 'description': 'Descrição detalhada da campanha'},
                 'beneficiaria_id': {'type': 'integer', 'description': 'ID da beneficiária (opcional)', 'nullable': True},
-                'imagem': {'type': 'string', 'format': 'binary', 'description': 'Arquivo de imagem (PNG, JPG, JPEG, GIF, WEBP)'},
-                'categorias': {'type': 'array', 'items': {'type': 'integer'}, 'description': 'IDs das categorias'},
+                'imagem_arquivo': {'type': 'string', 'format': 'binary', 'description': 'Arquivo de imagem (PNG, JPG, JPEG, GIF, WEBP)'},
+                'imagem_alt': {'type': 'string', 'description': 'Texto alternativo da imagem', 'default': 'Imagem da campanha'},
+                'categorias': {'type': 'string', 'description': 'IDs das categorias separados por vírgula (ex: "1,2,3")'},
                 'whatsapp': {'type': 'string', 'description': 'WhatsApp de contato', 'nullable': True},
                 'localizacao': {'type': 'integer', 'description': 'ID da localização', 'nullable': True},
                 'data_inicio': {'type': 'string', 'format': 'date-time', 'description': 'Data de início da campanha'},
                 'prazo': {'type': 'string', 'format': 'date-time', 'description': 'Data de término da campanha'},
                 'ativa': {'type': 'boolean', 'description': 'Se a campanha está ativa', 'default': True},
+                'itens_cadastro': {'type': 'string', 'description': 'JSON string com lista de itens (opcional)'},
             },
             'required': ['titulo', 'descricao', 'data_inicio', 'prazo']
         }
@@ -45,7 +61,8 @@ from .serializers_solicitacao import SolicitacaoRespostaSerializer
 @permission_classes([IsAuthenticated])
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def criar_campanha(request):
-    """API para criar campanha. Doadoras e Beneficiárias podem criar campanhas."""
+    """API para criar campanha com itens opcionais. Doadoras e Beneficiárias podem criar campanhas."""
+    import json
     from backend.pessoas.models import TipoUsuario
     
     # Verificar se o usuário é uma Doadora ou Beneficiária
@@ -66,7 +83,26 @@ def criar_campanha(request):
             'error': f'Erro ao verificar tipo de usuário: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    # Processar dados do request
     data = request.data.copy()
+    
+    # Processar categorias (se vier como string separada por vírgula)
+    if 'categorias' in data and isinstance(data['categorias'], str):
+        try:
+            data['categorias'] = [int(cat_id.strip()) for cat_id in data['categorias'].split(',') if cat_id.strip()]
+        except ValueError:
+            return Response({
+                'error': 'Formato inválido para categorias. Use IDs separados por vírgula (ex: "1,2,3")'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Processar itens_cadastro (se vier como JSON string)
+    if 'itens_cadastro' in data and isinstance(data['itens_cadastro'], str):
+        try:
+            data['itens_cadastro'] = json.loads(data['itens_cadastro'])
+        except json.JSONDecodeError:
+            return Response({
+                'error': 'Formato inválido para itens_cadastro. Use JSON válido.'
+            }, status=status.HTTP_400_BAD_REQUEST)
     
     # Criar ou obter perfil de organizadora automaticamente
     organizadora, created = Organizadora.objects.get_or_create(
@@ -104,11 +140,17 @@ def criar_campanha(request):
         else:
             message += ' ⏳ Aguardando confirmação da beneficiária para publicação.'
         
+        # Adicionar info sobre itens cadastrados
+        total_itens = campanha.itens.count()
+        if total_itens > 0:
+            message += f' 📦 {total_itens} item(ns) cadastrado(s)!'
+        
         return Response({
             'message': message,
             'data': CampanhaSerializer(campanha).data,
             'organizadora_criada': created,
-            'publicada': campanha.publicada
+            'publicada': campanha.publicada,
+            'total_itens_cadastrados': total_itens
         }, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
