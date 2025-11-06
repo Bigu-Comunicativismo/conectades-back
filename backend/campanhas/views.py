@@ -92,13 +92,28 @@ def criar_campanha(request):
             'error': f'Erro ao verificar tipo de usuário: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    # Processar dados do request
-    data = request.data.copy()
+    # Processar dados do request - converter para dict mutável
+    data = dict(request.data)
     
     import logging
     logger = logging.getLogger(__name__)
     logger.info(f"🔍 Dados recebidos (tipos): categorias={type(data.get('categorias'))}, itens_cadastro={type(data.get('itens_cadastro'))}")
     logger.info(f"🔍 Valores: categorias={data.get('categorias')}, itens_cadastro={data.get('itens_cadastro')}")
+    
+    # Helper: Normalizar campos que vêm como lista de um elemento do multipart
+    def normalize_field(value):
+        """Se o valor é uma lista com um único elemento, retorna o elemento"""
+        if isinstance(value, list) and len(value) == 1:
+            return value[0]
+        return value
+    
+    # Normalizar todos os campos (multipart envia alguns campos como lista)
+    for field in ['titulo', 'subtitulo', 'descricao', 'beneficiaria_id', 'imagem_alt', 
+                  'categorias', 'whatsapp', 'localizacao', 'data_inicio', 'prazo', 'itens_cadastro']:
+        if field in data:
+            data[field] = normalize_field(data[field])
+    
+    logger.info(f"✅ Após normalização: categorias={type(data.get('categorias'))}, itens_cadastro={type(data.get('itens_cadastro'))}")
     
     # Processar categorias (se vier como string separada por vírgula)
     if 'categorias' in data and isinstance(data['categorias'], str):
