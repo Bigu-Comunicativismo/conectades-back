@@ -6,6 +6,8 @@ urlpatterns = [
     path('listar/', views.listar_campanhas, name='listar_campanhas'),
     path('minhas/', views.minhas_campanhas, name='minhas_campanhas'),
     path('<int:campanha_id>/', views.detalhar_campanha, name='detalhar_campanha'),
+    path('<int:campanha_id>/editar/', views.editar_campanha, name='editar_campanha'),
+    path('<int:campanha_id>/desativar/', views.desativar_campanha, name='desativar_campanha'),
     
     # Itens de Campanha
     path('<int:campanha_id>/itens/', views.listar_itens_campanha, name='listar_itens_campanha'),

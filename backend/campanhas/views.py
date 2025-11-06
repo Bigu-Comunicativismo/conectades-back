@@ -358,6 +358,200 @@ def detalhar_campanha(request, campanha_id: int):
     return Response(cached_data)
 
 
+@extend_schema(
+    operation_id='editar_campanha',
+    summary='Editar Campanha',
+    description='''
+    Edita uma campanha existente. Apenas a organizadora pode editar.
+    
+    **Multipart/Form-Data:**
+    - Envie a imagem como arquivo (`imagem_arquivo`)
+    - Envie categorias como string separada por vírgula (`categorias`)
+    
+    **Campos editáveis:**
+    - titulo, subtitulo, descricao
+    - imagem_arquivo, imagem_alt
+    - categorias, whatsapp, localizacao
+    - data_inicio, prazo
+    ''',
+    tags=['Campanhas'],
+    request={
+        'multipart/form-data': {
+            'type': 'object',
+            'properties': {
+                'titulo': {'type': 'string', 'description': 'Título da campanha'},
+                'subtitulo': {'type': 'string', 'description': 'Subtítulo da campanha'},
+                'descricao': {'type': 'string', 'description': 'Descrição detalhada'},
+                'imagem_arquivo': {'type': 'string', 'format': 'binary', 'description': 'Nova imagem (opcional)'},
+                'imagem_alt': {'type': 'string', 'description': 'Texto alternativo da imagem'},
+                'categorias': {'type': 'string', 'description': 'IDs das categorias separados por vírgula (ex: "1,2,3")'},
+                'whatsapp': {'type': 'string', 'description': 'Número do WhatsApp'},
+                'localizacao': {'type': 'integer', 'description': 'ID da localização'},
+                'data_inicio': {'type': 'string', 'format': 'date-time', 'description': 'Data de início (YYYY-MM-DDTHH:MM:SS)'},
+                'prazo': {'type': 'string', 'format': 'date-time', 'description': 'Prazo final (YYYY-MM-DDTHH:MM:SS)'},
+            }
+        }
+    },
+    responses={
+        200: CampanhaSerializer,
+        400: OpenApiTypes.OBJECT,
+        403: OpenApiTypes.OBJECT,
+        404: OpenApiTypes.OBJECT,
+    }
+)
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
+def editar_campanha(request, campanha_id: int):
+    """Edita uma campanha existente"""
+    import json
+    
+    # Validar Content-Type se for multipart/form-data
+    content_type = request.content_type or ''
+    if 'multipart/form-data' in content_type.lower():
+        if 'boundary=' not in content_type.lower():
+            return Response({
+                'error': 'Content-Type multipart/form-data sem boundary',
+                'recebido': content_type,
+                'dica': 'O boundary é gerado automaticamente pelo cliente HTTP. Certifique-se de que seu cliente está configurado corretamente para enviar multipart/form-data.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Buscar campanha
+        campanha = Campanha.objects.select_related('organizadora__pessoa').get(id=campanha_id)
+        
+        # Verificar se o usuário é a organizadora
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            if campanha.organizadora != organizadora:
+                return Response({
+                    'error': 'Apenas a organizadora pode editar a campanha'
+                }, status=status.HTTP_403_FORBIDDEN)
+        except Organizadora.DoesNotExist:
+            return Response({
+                'error': 'Usuário não é uma organizadora'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Processar dados do request
+        data = request.data.copy()
+        
+        # Processar categorias (se vier como string separada por vírgula)
+        if 'categorias' in data and isinstance(data['categorias'], str):
+            try:
+                data['categorias'] = [int(cat_id.strip()) for cat_id in data['categorias'].split(',') if cat_id.strip()]
+            except ValueError:
+                return Response({
+                    'error': 'Formato inválido para categorias. Use IDs separados por vírgula (ex: "1,2,3")'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Não permitir alterar organizadora ou beneficiaria via edição
+        data.pop('organizadora_id', None)
+        data.pop('beneficiaria_id', None)
+        data.pop('itens_cadastro', None)  # Itens não são editados aqui
+        
+        # Se houver nova imagem, criar objeto Imagem
+        if 'imagem_arquivo' in data and data['imagem_arquivo']:
+            from .models import Imagem
+            imagem_arquivo = data.pop('imagem_arquivo')
+            imagem_alt = data.pop('imagem_alt', 'Imagem da campanha')
+            
+            # Criar nova imagem
+            imagem = Imagem.objects.create(
+                src=imagem_arquivo,
+                alt=imagem_alt
+            )
+            
+            # Deletar imagem antiga (se existir)
+            if campanha.imagem:
+                imagem_antiga = campanha.imagem
+                campanha.imagem = None
+                campanha.save(update_fields=['imagem'])
+                imagem_antiga.delete()
+            
+            # Atribuir nova imagem
+            campanha.imagem = imagem
+            campanha.save(update_fields=['imagem'])
+        elif 'imagem_alt' in data:
+            data.pop('imagem_alt')  # Remover se não há arquivo
+        
+        # Atualizar campanha
+        serializer = CampanhaSerializer(campanha, data=data, partial=True)
+        
+        if serializer.is_valid():
+            campanha_atualizada = serializer.save()
+            
+            # Atualizar categorias (many-to-many)
+            if 'categorias' in data:
+                campanha_atualizada.categorias.set(data['categorias'])
+            
+            # Invalidar cache
+            cache.delete(f'campanha_detail_{campanha_id}')
+            cache.delete(f'campanhas_user_{request.user.id}')
+            cache.delete('campanhas_publicas')
+            
+            return Response({
+                'message': f'Campanha "{campanha_atualizada.titulo}" atualizada com sucesso!',
+                'data': CampanhaSerializer(campanha_atualizada).data
+            }, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Campanha.DoesNotExist:
+        return Response({
+            'error': 'Campanha não encontrada'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    operation_id='desativar_campanha',
+    summary='Desativar Campanha',
+    description='Desativa uma campanha (campo ativa=False). Apenas a organizadora pode desativar.',
+    tags=['Campanhas'],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        403: OpenApiTypes.OBJECT,
+        404: OpenApiTypes.OBJECT,
+    }
+)
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def desativar_campanha(request, campanha_id: int):
+    """Desativa uma campanha"""
+    try:
+        # Buscar campanha
+        campanha = Campanha.objects.select_related('organizadora__pessoa').get(id=campanha_id)
+        
+        # Verificar se o usuário é a organizadora
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            if campanha.organizadora != organizadora:
+                return Response({
+                    'error': 'Apenas a organizadora pode desativar a campanha'
+                }, status=status.HTTP_403_FORBIDDEN)
+        except Organizadora.DoesNotExist:
+            return Response({
+                'error': 'Usuário não é uma organizadora'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Desativar campanha
+        campanha.ativa = False
+        campanha.save(update_fields=['ativa'])
+        
+        # Invalidar cache
+        cache.delete(f'campanha_detail_{campanha_id}')
+        cache.delete(f'campanhas_user_{request.user.id}')
+        cache.delete('campanhas_publicas')
+        
+        return Response({
+            'message': f'Campanha "{campanha.titulo}" desativada com sucesso!',
+            'data': CampanhaSerializer(campanha).data
+        }, status=status.HTTP_200_OK)
+        
+    except Campanha.DoesNotExist:
+        return Response({
+            'error': 'Campanha não encontrada'
+        }, status=status.HTTP_404_NOT_FOUND)
+
 
 @extend_schema(
     operation_id='listar_itens_campanha',
