@@ -246,14 +246,43 @@ def listar_bairros_cidade(request, cidade):
     }
 )
 @api_view(['POST'])
-@parser_classes([MultiPartParser, FormParser, JSONParser])
+@parser_classes([MultiPartParser, FormParser])
 @permission_classes([AllowAny])
 def iniciar_registro(request):
     """
     Valida dados e envia link de ativação por email
     ENDPOINT PÚBLICO - não requer autenticação
+    
+    **IMPORTANTE:** Use multipart/form-data para enviar os dados (necessário para upload de avatar)
     """
     try:
+        # Validar Content-Type
+        content_type = request.content_type
+        
+        if not content_type:
+            return Response({
+                'error': 'Content-Type não especificado',
+                'dica': 'Use Content-Type: multipart/form-data'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Se for application/json, rejeitar com mensagem clara
+        if 'application/json' in content_type.lower():
+            return Response({
+                'error': 'Content-Type incorreto',
+                'recebido': content_type,
+                'esperado': 'multipart/form-data',
+                'dica': 'Este endpoint requer multipart/form-data para suportar upload de avatar. Configure seu cliente HTTP corretamente.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Validar se tem boundary no multipart
+        if 'multipart/form-data' in content_type.lower():
+            if 'boundary=' not in content_type.lower():
+                return Response({
+                    'error': 'Content-Type multipart/form-data sem boundary',
+                    'recebido': content_type,
+                    'dica': 'O boundary é gerado automaticamente pelo cliente HTTP. Certifique-se de que seu cliente está configurado corretamente para enviar multipart/form-data.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
         serializer = RegistroComCodigoSerializer(data=request.data)
         
         if not serializer.is_valid():
@@ -901,13 +930,25 @@ def meu_perfil(request):
     responses={200: PessoaSerializer}
 )
 @api_view(['PUT', 'PATCH'])
-@parser_classes([MultiPartParser, FormParser, JSONParser])
+@parser_classes([MultiPartParser, FormParser])
 @permission_classes([IsAuthenticated])
 def atualizar_perfil(request):
     """
     Atualiza dados do usuário logado
     ENDPOINT PROTEGIDO - requer autenticação JWT
+    
+    **IMPORTANTE:** Use multipart/form-data para enviar os dados (necessário para upload de avatar)
     """
+    # Validar Content-Type se for multipart
+    content_type = request.content_type or ''
+    if 'multipart/form-data' in content_type.lower():
+        if 'boundary=' not in content_type.lower():
+            return Response({
+                'error': 'Content-Type multipart/form-data sem boundary',
+                'recebido': content_type,
+                'dica': 'Configure seu cliente HTTP corretamente para enviar multipart/form-data com boundary.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
     serializer = PessoaSerializer(
         request.user,
         data=request.data,
