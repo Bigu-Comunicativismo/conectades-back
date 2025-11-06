@@ -323,6 +323,174 @@ def listar_itens_campanha(request, campanha_id: int):
     return Response(serializer.data)
 
 
+@extend_schema(
+    operation_id='cadastrar_item_campanha',
+    summary='Cadastrar Item em Campanha',
+    description='Cadastra um novo item de doação em uma campanha específica. Apenas a organizadora pode adicionar itens.',
+    tags=['Campanhas'],
+    request=ItemCampanhaSerializer,
+    responses={
+        201: ItemCampanhaSerializer,
+        400: OpenApiTypes.OBJECT,
+        403: OpenApiTypes.OBJECT,
+        404: OpenApiTypes.OBJECT,
+    }
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cadastrar_item_campanha(request, campanha_id: int):
+    """Cadastra um novo item em uma campanha"""
+    try:
+        # Verificar se a campanha existe
+        campanha = Campanha.objects.select_related('organizadora__pessoa').get(id=campanha_id)
+        
+        # Verificar se o usuário é a organizadora da campanha
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            if campanha.organizadora != organizadora:
+                return Response({
+                    'error': 'Apenas a organizadora pode adicionar itens à campanha'
+                }, status=status.HTTP_403_FORBIDDEN)
+        except Organizadora.DoesNotExist:
+            return Response({
+                'error': 'Usuário não é uma organizadora'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Preparar dados
+        data = request.data.copy()
+        data['campanha'] = campanha_id
+        
+        # Validar e criar item
+        serializer = ItemCampanhaSerializer(data=data)
+        if serializer.is_valid():
+            item = serializer.save()
+            
+            # Invalidar cache da campanha
+            cache.delete(f'campanha_detail_{campanha_id}')
+            cache.delete(f'campanhas_user_{request.user.id}')
+            
+            return Response({
+                'message': f'Item "{item.nome}" cadastrado com sucesso!',
+                'data': ItemCampanhaSerializer(item).data
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    except Campanha.DoesNotExist:
+        return Response({
+            'error': 'Campanha não encontrada'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    operation_id='editar_item_campanha',
+    summary='Editar Item de Campanha',
+    description='Edita um item de doação existente. Apenas a organizadora pode editar itens.',
+    tags=['Campanhas'],
+    request=ItemCampanhaSerializer,
+    responses={
+        200: ItemCampanhaSerializer,
+        400: OpenApiTypes.OBJECT,
+        403: OpenApiTypes.OBJECT,
+        404: OpenApiTypes.OBJECT,
+    }
+)
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def editar_item_campanha(request, item_id: int):
+    """Edita um item de campanha"""
+    try:
+        # Buscar item
+        item = ItemCampanha.objects.select_related('campanha__organizadora__pessoa').get(id=item_id)
+        
+        # Verificar se o usuário é a organizadora da campanha
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            if item.campanha.organizadora != organizadora:
+                return Response({
+                    'error': 'Apenas a organizadora pode editar itens da campanha'
+                }, status=status.HTTP_403_FORBIDDEN)
+        except Organizadora.DoesNotExist:
+            return Response({
+                'error': 'Usuário não é uma organizadora'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Atualizar item (parcial se PATCH, completo se PUT)
+        partial = request.method == 'PATCH'
+        serializer = ItemCampanhaSerializer(item, data=request.data, partial=partial)
+        
+        if serializer.is_valid():
+            item_atualizado = serializer.save()
+            
+            # Invalidar cache da campanha
+            cache.delete(f'campanha_detail_{item.campanha.id}')
+            cache.delete(f'campanhas_user_{request.user.id}')
+            
+            return Response({
+                'message': f'Item "{item_atualizado.nome}" atualizado com sucesso!',
+                'data': ItemCampanhaSerializer(item_atualizado).data
+            }, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+    except ItemCampanha.DoesNotExist:
+        return Response({
+            'error': 'Item não encontrado'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(
+    operation_id='deletar_item_campanha',
+    summary='Deletar Item de Campanha',
+    description='Deleta um item de doação de uma campanha. Apenas a organizadora pode deletar itens.',
+    tags=['Campanhas'],
+    responses={
+        200: OpenApiTypes.OBJECT,
+        403: OpenApiTypes.OBJECT,
+        404: OpenApiTypes.OBJECT,
+    }
+)
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def deletar_item_campanha(request, item_id: int):
+    """Deleta um item de campanha"""
+    try:
+        # Buscar item
+        item = ItemCampanha.objects.select_related('campanha__organizadora__pessoa').get(id=item_id)
+        
+        # Verificar se o usuário é a organizadora da campanha
+        try:
+            organizadora = Organizadora.objects.get(pessoa=request.user)
+            if item.campanha.organizadora != organizadora:
+                return Response({
+                    'error': 'Apenas a organizadora pode deletar itens da campanha'
+                }, status=status.HTTP_403_FORBIDDEN)
+        except Organizadora.DoesNotExist:
+            return Response({
+                'error': 'Usuário não é uma organizadora'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Salvar informações antes de deletar
+        item_nome = item.nome
+        campanha_id = item.campanha.id
+        
+        # Deletar item
+        item.delete()
+        
+        # Invalidar cache da campanha
+        cache.delete(f'campanha_detail_{campanha_id}')
+        cache.delete(f'campanhas_user_{request.user.id}')
+        
+        return Response({
+            'message': f'Item "{item_nome}" deletado com sucesso!'
+        }, status=status.HTTP_200_OK)
+        
+    except ItemCampanha.DoesNotExist:
+        return Response({
+            'error': 'Item não encontrado'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+
 # ==================== SOLICITAÇÕES DE BENEFICIÁRIA ====================
 
 @extend_schema(
