@@ -283,7 +283,20 @@ def iniciar_registro(request):
                     'dica': 'O boundary é gerado automaticamente pelo cliente HTTP. Certifique-se de que seu cliente está configurado corretamente para enviar multipart/form-data.'
                 }, status=status.HTTP_400_BAD_REQUEST)
         
-        serializer = RegistroComCodigoSerializer(data=request.data)
+        # Normalizar campos multipart (mesmo fix aplicado em campanhas)
+        data = dict(request.data)
+        
+        def normalize_field(value):
+            """Se o valor é uma lista com um único elemento, retorna o elemento"""
+            if isinstance(value, list) and len(value) == 1:
+                return value[0]
+            return value
+        
+        # Normalizar todos os campos do formulário de registro
+        for field in list(data.keys()):
+            data[field] = normalize_field(data[field])
+        
+        serializer = RegistroComCodigoSerializer(data=data)
         
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -949,9 +962,22 @@ def atualizar_perfil(request):
                 'dica': 'Configure seu cliente HTTP corretamente para enviar multipart/form-data com boundary.'
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    # Normalizar campos multipart (mesmo fix aplicado em campanhas)
+    data = dict(request.data)
+    
+    def normalize_field(value):
+        """Se o valor é uma lista com um único elemento, retorna o elemento"""
+        if isinstance(value, list) and len(value) == 1:
+            return value[0]
+        return value
+    
+    # Normalizar todos os campos
+    for field in list(data.keys()):
+        data[field] = normalize_field(data[field])
+    
     serializer = PessoaSerializer(
         request.user,
-        data=request.data,
+        data=data,
         partial=True
     )
     
