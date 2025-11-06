@@ -296,6 +296,32 @@ def iniciar_registro(request):
         for field in list(data.keys()):
             data[field] = normalize_field(data[field])
         
+        # Processar campos que devem ser arrays (IDs separados por vírgula)
+        for field in ['categorias_interesse', 'localizacoes_interesse']:
+            if field in data and data[field]:
+                value = data[field]
+                # Se for string, converter para lista de IDs
+                if isinstance(value, str):
+                    try:
+                        # Separar por vírgula e converter para inteiros
+                        data[field] = [int(id.strip()) for id in value.split(',') if id.strip()]
+                    except ValueError:
+                        return Response({
+                            'error': f'Formato inválido para {field}',
+                            'recebido': value,
+                            'formato_esperado': 'IDs separados por vírgula (ex: "1,2,3") ou lista de inteiros'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                # Se já for lista, garantir que são inteiros
+                elif isinstance(value, list):
+                    try:
+                        data[field] = [int(id) for id in value if id]
+                    except ValueError:
+                        return Response({
+                            'error': f'Formato inválido para {field}',
+                            'recebido': value,
+                            'formato_esperado': 'Lista de IDs inteiros'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+        
         serializer = RegistroComCodigoSerializer(data=data)
         
         if not serializer.is_valid():
@@ -974,6 +1000,31 @@ def atualizar_perfil(request):
     # Normalizar todos os campos
     for field in list(data.keys()):
         data[field] = normalize_field(data[field])
+    
+    # Processar campos que devem ser arrays (IDs separados por vírgula)
+    for field in ['categorias_interesse', 'localizacoes_interesse']:
+        if field in data and data[field]:
+            value = data[field]
+            # Se for string, converter para lista de IDs
+            if isinstance(value, str):
+                try:
+                    data[field] = [int(id.strip()) for id in value.split(',') if id.strip()]
+                except ValueError:
+                    return Response({
+                        'error': f'Formato inválido para {field}',
+                        'recebido': value,
+                        'formato_esperado': 'IDs separados por vírgula (ex: "1,2,3")'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            # Se já for lista, garantir que são inteiros
+            elif isinstance(value, list):
+                try:
+                    data[field] = [int(id) for id in value if id]
+                except ValueError:
+                    return Response({
+                        'error': f'Formato inválido para {field}',
+                        'recebido': value,
+                        'formato_esperado': 'Lista de IDs inteiros'
+                    }, status=status.HTTP_400_BAD_REQUEST)
     
     serializer = PessoaSerializer(
         request.user,
