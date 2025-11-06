@@ -113,6 +113,55 @@ def criar_campanha(request):
                 'error': 'Formato inválido para itens_cadastro. Use JSON válido.'
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    # Validar formato dos itens (se fornecidos)
+    if 'itens_cadastro' in data and data['itens_cadastro']:
+        if not isinstance(data['itens_cadastro'], list):
+            return Response({
+                'error': 'itens_cadastro deve ser uma lista/array',
+                'exemplo': '[{"nome":"Item 1","quantidade_solicitada":10,"unidade":"kg"}]'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        for idx, item in enumerate(data['itens_cadastro']):
+            if not isinstance(item, dict):
+                return Response({
+                    'error': f'Item na posição {idx} deve ser um objeto',
+                    'recebido': str(item),
+                    'exemplo': '{"nome":"Item 1","quantidade_solicitada":10,"unidade":"kg"}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validar campos obrigatórios
+            if 'nome' not in item or not item['nome']:
+                return Response({
+                    'error': f'Item na posição {idx} está sem o campo "nome"',
+                    'item_recebido': item,
+                    'campos_obrigatorios': ['nome', 'quantidade_solicitada']
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            if 'quantidade_solicitada' not in item:
+                return Response({
+                    'error': f'Item na posição {idx} está sem o campo "quantidade_solicitada"',
+                    'item_recebido': item,
+                    'dica': 'Use "quantidade_solicitada" (não "quantidade")',
+                    'exemplo': '{"nome":"Arroz","quantidade_solicitada":50,"unidade":"kg"}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validar tipo do campo quantidade_solicitada
+            try:
+                quantidade = int(item['quantidade_solicitada'])
+                if quantidade <= 0:
+                    return Response({
+                        'error': f'Item "{item["nome"]}" tem quantidade_solicitada inválida',
+                        'recebido': item['quantidade_solicitada'],
+                        'dica': 'quantidade_solicitada deve ser um número inteiro positivo'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError):
+                return Response({
+                    'error': f'Item "{item["nome"]}" tem quantidade_solicitada em formato inválido',
+                    'recebido': item['quantidade_solicitada'],
+                    'tipo_recebido': type(item['quantidade_solicitada']).__name__,
+                    'dica': 'quantidade_solicitada deve ser um número inteiro'
+                }, status=status.HTTP_400_BAD_REQUEST)
+    
     # Criar ou obter perfil de organizadora automaticamente
     organizadora, created = Organizadora.objects.get_or_create(
         pessoa=request.user,
