@@ -95,6 +95,11 @@ def criar_campanha(request):
     # Processar dados do request
     data = request.data.copy()
     
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔍 Dados recebidos (tipos): categorias={type(data.get('categorias'))}, itens_cadastro={type(data.get('itens_cadastro'))}")
+    logger.info(f"🔍 Valores: categorias={data.get('categorias')}, itens_cadastro={data.get('itens_cadastro')}")
+    
     # Processar categorias (se vier como string separada por vírgula)
     if 'categorias' in data and isinstance(data['categorias'], str):
         try:
@@ -161,6 +166,9 @@ def criar_campanha(request):
                     'tipo_recebido': type(item['quantidade_solicitada']).__name__,
                     'dica': 'quantidade_solicitada deve ser um número inteiro'
                 }, status=status.HTTP_400_BAD_REQUEST)
+    
+    logger.info(f"✅ Após processamento: categorias={type(data.get('categorias'))} = {data.get('categorias')}")
+    logger.info(f"✅ Após processamento: itens_cadastro={type(data.get('itens_cadastro'))} = {data.get('itens_cadastro')}")
     
     # Criar ou obter perfil de organizadora automaticamente
     organizadora, created = Organizadora.objects.get_or_create(
