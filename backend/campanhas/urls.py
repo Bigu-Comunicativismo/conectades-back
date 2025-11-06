@@ -10,8 +10,6 @@ urlpatterns = [
     # Itens de Campanha
     path('<int:campanha_id>/itens/', views.listar_itens_campanha, name='listar_itens_campanha'),
     path('<int:campanha_id>/itens/cadastrar/', views.cadastrar_item_campanha, name='cadastrar_item_campanha'),
-    path('itens/<int:item_id>/', views.editar_item_campanha, name='editar_item_campanha'),
-    path('itens/<int:item_id>/deletar/', views.deletar_item_campanha, name='deletar_item_campanha'),
     
     # Solicitações de Beneficiária
     path('solicitacoes/minhas/', views.minhas_solicitacoes_beneficiaria, name='minhas_solicitacoes_beneficiaria'),
