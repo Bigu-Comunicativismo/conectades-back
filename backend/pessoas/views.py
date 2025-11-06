@@ -330,12 +330,40 @@ def iniciar_registro(request):
         email = serializer.validated_data['email']
         
         # Converter dados para formato serializável (dict com IDs ao invés de objetos)
-        # IMPORTANTE: Arquivos (bytes, UploadedFile) não podem ser serializados em JSON
+        # IMPORTANTE: Arquivos (avatar) são salvos temporariamente e referenciados por caminho
         dados_cache = {}
+        avatar_temp_path = None
+        
         for key, value in serializer.validated_data.items():
-            # Pular arquivos (avatar) - não podem ser serializados no cache
-            if key == 'avatar' or isinstance(value, bytes):
+            # Salvar avatar em arquivo temporário
+            if key == 'avatar' and value:
+                import os
+                from django.core.files.uploadedfile import UploadedFile
+                from django.conf import settings
+                
+                # Criar diretório temporário se não existir
+                temp_dir = os.path.join(settings.MEDIA_ROOT, 'avatars_temp')
+                os.makedirs(temp_dir, exist_ok=True)
+                
+                # Gerar nome único para o arquivo temporário
+                import uuid
+                ext = os.path.splitext(value.name)[1] if hasattr(value, 'name') else '.jpg'
+                temp_filename = f"{uuid.uuid4()}{ext}"
+                avatar_temp_path = os.path.join(temp_dir, temp_filename)
+                
+                # Salvar arquivo temporário
+                with open(avatar_temp_path, 'wb+') as destination:
+                    for chunk in value.chunks():
+                        destination.write(chunk)
+                
+                # Armazenar apenas o caminho relativo no cache
+                dados_cache['avatar_temp'] = os.path.join('avatars_temp', temp_filename)
                 continue
+            
+            # Pular valores bytes (por segurança)
+            if isinstance(value, bytes):
+                continue
+            
             # Pular valores None
             if value is None:
                 dados_cache[key] = None

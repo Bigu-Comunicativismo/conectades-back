@@ -248,6 +248,30 @@ def ativar_conta_via_link(request, token):
             # Salvar usuário
             user.save()
             
+            # Recuperar e salvar avatar (se existir)
+            if 'avatar_temp' in dados_registro:
+                import os
+                from django.conf import settings
+                from django.core.files import File
+                
+                avatar_temp_path = os.path.join(settings.MEDIA_ROOT, dados_registro['avatar_temp'])
+                
+                if os.path.exists(avatar_temp_path):
+                    try:
+                        with open(avatar_temp_path, 'rb') as avatar_file:
+                            from django.core.files.uploadedfile import SimpleUploadedFile
+                            filename = os.path.basename(avatar_temp_path)
+                            user.avatar.save(filename, File(avatar_file), save=True)
+                        
+                        # Remover arquivo temporário após salvar
+                        os.remove(avatar_temp_path)
+                        logger.info(f"✅ Avatar salvo e arquivo temporário removido: {avatar_temp_path}")
+                    except Exception as e:
+                        logger.error(f"❌ Erro ao salvar avatar: {e}")
+                        # Não falhar o registro por causa do avatar
+                else:
+                    logger.warning(f"⚠️ Arquivo temporário de avatar não encontrado: {avatar_temp_path}")
+            
             # Adicionar categorias e localizações de interesse
             if 'categorias_interesse' in dados_registro:
                 user.categorias_interesse.set(dados_registro['categorias_interesse'])
