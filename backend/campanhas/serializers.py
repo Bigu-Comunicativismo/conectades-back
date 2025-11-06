@@ -143,7 +143,7 @@ class CampanhaSerializer(serializers.ModelSerializer):
             'total_itens', 'itens_completos', 'itens', 'itens_cadastro', 'doacoes',
             'ativa'
         ]
-        read_only_fields = ['id', 'beneficiaria', 'percentual_atingido', 'status_campanha', 'total_itens', 'itens_completos', 'dias_restantes', 'doacoes', 'imagem_url']
+        read_only_fields = ['id', 'beneficiaria', 'percentual_atingido', 'status_campanha', 'total_itens', 'itens_completos', 'dias_restantes', 'doacoes', 'imagem_url', 'ativa']
     
     def create(self, validated_data):
         from .models import Imagem

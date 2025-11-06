@@ -46,7 +46,6 @@ from .serializers_solicitacao import SolicitacaoRespostaSerializer
                 'localizacao': {'type': 'integer', 'description': 'ID da localização', 'nullable': True},
                 'data_inicio': {'type': 'string', 'format': 'date-time', 'description': 'Data de início da campanha'},
                 'prazo': {'type': 'string', 'format': 'date-time', 'description': 'Data de término da campanha'},
-                'ativa': {'type': 'boolean', 'description': 'Se a campanha está ativa', 'default': True},
                 'itens_cadastro': {'type': 'string', 'description': 'JSON string com lista de itens (opcional)'},
             },
             'required': ['titulo', 'descricao', 'data_inicio', 'prazo']
