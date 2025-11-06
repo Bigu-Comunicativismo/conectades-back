@@ -249,28 +249,52 @@ def ativar_conta_via_link(request, token):
             user.save()
             
             # Recuperar e salvar avatar (se existir)
+            logger.info(f"🔍 Verificando avatar no cache. Dados no cache: {list(dados_registro.keys())}")
+            
             if 'avatar_temp' in dados_registro:
                 import os
                 from django.conf import settings
                 from django.core.files import File
                 
-                avatar_temp_path = os.path.join(settings.MEDIA_ROOT, dados_registro['avatar_temp'])
+                avatar_temp_relative = dados_registro['avatar_temp']
+                avatar_temp_path = os.path.join(settings.MEDIA_ROOT, avatar_temp_relative)
+                
+                logger.info(f"📸 Avatar temp encontrado no cache: {avatar_temp_relative}")
+                logger.info(f"📁 Caminho completo: {avatar_temp_path}")
+                logger.info(f"🔍 Arquivo existe? {os.path.exists(avatar_temp_path)}")
                 
                 if os.path.exists(avatar_temp_path):
                     try:
+                        file_size = os.path.getsize(avatar_temp_path)
+                        logger.info(f"📊 Tamanho do arquivo: {file_size} bytes")
+                        
                         with open(avatar_temp_path, 'rb') as avatar_file:
                             from django.core.files.uploadedfile import SimpleUploadedFile
                             filename = os.path.basename(avatar_temp_path)
+                            logger.info(f"💾 Salvando avatar como: {filename}")
                             user.avatar.save(filename, File(avatar_file), save=True)
+                        
+                        logger.info(f"✅ Avatar salvo no usuário! Caminho final: {user.avatar.name if user.avatar else 'VAZIO'}")
                         
                         # Remover arquivo temporário após salvar
                         os.remove(avatar_temp_path)
-                        logger.info(f"✅ Avatar salvo e arquivo temporário removido: {avatar_temp_path}")
+                        logger.info(f"🗑️ Arquivo temporário removido: {avatar_temp_path}")
                     except Exception as e:
+                        import traceback
                         logger.error(f"❌ Erro ao salvar avatar: {e}")
+                        logger.error(f"Stack trace: {traceback.format_exc()}")
                         # Não falhar o registro por causa do avatar
                 else:
                     logger.warning(f"⚠️ Arquivo temporário de avatar não encontrado: {avatar_temp_path}")
+                    logger.warning(f"⚠️ MEDIA_ROOT: {settings.MEDIA_ROOT}")
+                    logger.warning(f"⚠️ Conteúdo do diretório temp:")
+                    temp_dir = os.path.join(settings.MEDIA_ROOT, 'avatars_temp')
+                    if os.path.exists(temp_dir):
+                        logger.warning(f"   Arquivos: {os.listdir(temp_dir)}")
+                    else:
+                        logger.warning(f"   Diretório não existe: {temp_dir}")
+            else:
+                logger.warning("⚠️ Campo 'avatar_temp' não encontrado no cache")
             
             # Adicionar categorias e localizações de interesse
             if 'categorias_interesse' in dados_registro:

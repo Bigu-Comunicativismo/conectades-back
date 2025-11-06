@@ -340,10 +340,15 @@ def iniciar_registro(request):
                 import os
                 from django.core.files.uploadedfile import UploadedFile
                 from django.conf import settings
+                import logging
+                logger = logging.getLogger(__name__)
+                
+                logger.info(f"📸 Avatar detectado! Tipo: {type(value)}, Nome: {getattr(value, 'name', 'sem nome')}")
                 
                 # Criar diretório temporário se não existir
                 temp_dir = os.path.join(settings.MEDIA_ROOT, 'avatars_temp')
                 os.makedirs(temp_dir, exist_ok=True)
+                logger.info(f"📁 Diretório temporário: {temp_dir}")
                 
                 # Gerar nome único para o arquivo temporário
                 import uuid
@@ -351,13 +356,24 @@ def iniciar_registro(request):
                 temp_filename = f"{uuid.uuid4()}{ext}"
                 avatar_temp_path = os.path.join(temp_dir, temp_filename)
                 
+                logger.info(f"💾 Salvando avatar em: {avatar_temp_path}")
+                
                 # Salvar arquivo temporário
                 with open(avatar_temp_path, 'wb+') as destination:
                     for chunk in value.chunks():
                         destination.write(chunk)
                 
+                # Verificar se arquivo foi salvo
+                if os.path.exists(avatar_temp_path):
+                    file_size = os.path.getsize(avatar_temp_path)
+                    logger.info(f"✅ Avatar salvo com sucesso! Tamanho: {file_size} bytes")
+                else:
+                    logger.error(f"❌ Erro: arquivo não foi salvo em {avatar_temp_path}")
+                
                 # Armazenar apenas o caminho relativo no cache
-                dados_cache['avatar_temp'] = os.path.join('avatars_temp', temp_filename)
+                avatar_temp_relative = os.path.join('avatars_temp', temp_filename)
+                dados_cache['avatar_temp'] = avatar_temp_relative
+                logger.info(f"🗂️ Caminho armazenado no cache: {avatar_temp_relative}")
                 continue
             
             # Pular valores bytes (por segurança)
