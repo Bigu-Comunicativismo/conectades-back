@@ -330,8 +330,12 @@ def iniciar_registro(request):
         email = serializer.validated_data['email']
         
         # Converter dados para formato serializável (dict com IDs ao invés de objetos)
+        # IMPORTANTE: Arquivos (bytes, UploadedFile) não podem ser serializados em JSON
         dados_cache = {}
         for key, value in serializer.validated_data.items():
+            # Pular arquivos (avatar) - não podem ser serializados no cache
+            if key == 'avatar' or isinstance(value, bytes):
+                continue
             # Pular valores None
             if value is None:
                 dados_cache[key] = None
@@ -339,7 +343,7 @@ def iniciar_registro(request):
             elif hasattr(value, 'pk'):
                 dados_cache[key] = value.pk
             # Converter QuerySets e listas de objetos para listas de IDs
-            elif hasattr(value, '__iter__') and not isinstance(value, (str, dict, bytes)):
+            elif hasattr(value, '__iter__') and not isinstance(value, (str, dict)):
                 try:
                     dados_cache[key] = [item.pk if hasattr(item, 'pk') else item for item in value]
                 except (TypeError, AttributeError):
