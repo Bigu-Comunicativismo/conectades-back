@@ -108,12 +108,13 @@ def criar_campanha(request):
         return value
     
     # Normalizar todos os campos (multipart envia alguns campos como lista)
-    for field in ['titulo', 'subtitulo', 'descricao', 'beneficiaria_id', 'imagem_alt', 
+    # IMPORTANTE: Incluir imagem_arquivo para normalizar arquivos também
+    for field in ['titulo', 'subtitulo', 'descricao', 'beneficiaria_id', 'imagem_arquivo', 'imagem_alt', 
                   'categorias', 'whatsapp', 'localizacao', 'data_inicio', 'prazo', 'itens_cadastro']:
         if field in data:
             data[field] = normalize_field(data[field])
     
-    logger.info(f"✅ Após normalização: categorias={type(data.get('categorias'))}, itens_cadastro={type(data.get('itens_cadastro'))}")
+    logger.info(f"✅ Após normalização: categorias={type(data.get('categorias'))}, itens_cadastro={type(data.get('itens_cadastro'))}, imagem_arquivo={type(data.get('imagem_arquivo'))}")
     
     # Processar categorias (se vier como string separada por vírgula)
     if 'categorias' in data and isinstance(data['categorias'], str):
