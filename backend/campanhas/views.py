@@ -65,6 +65,16 @@ def criar_campanha(request):
     import json
     from backend.pessoas.models import TipoUsuario
     
+    # Validar Content-Type se for multipart/form-data
+    content_type = request.content_type or ''
+    if 'multipart/form-data' in content_type.lower():
+        if 'boundary=' not in content_type.lower():
+            return Response({
+                'error': 'Content-Type multipart/form-data sem boundary',
+                'recebido': content_type,
+                'dica': 'O boundary é gerado automaticamente pelo cliente HTTP. Certifique-se de que seu cliente está configurado corretamente para enviar multipart/form-data.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    
     # Verificar se o usuário é uma Doadora ou Beneficiária
     try:
         tipo_doadora = TipoUsuario.objects.get(codigo='doadora')
