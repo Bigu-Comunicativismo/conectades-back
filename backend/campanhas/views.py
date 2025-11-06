@@ -172,7 +172,11 @@ def criar_campanha(request):
     
     serializer = CampanhaSerializer(data=data)
     if serializer.is_valid():
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"✅ Dados válidos para criar campanha: {data.keys()}")
         campanha = serializer.save()
+        logger.info(f"✅ Campanha '{campanha.titulo}' (ID: {campanha.id}) criada com sucesso!")
         
         # AUTO-PUBLICAR campanha se:
         # 1. Não há beneficiária (campanha sem beneficiária específica)
@@ -211,6 +215,9 @@ def criar_campanha(request):
             'total_itens_cadastrados': total_itens
         }, status=status.HTTP_201_CREATED)
     
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"❌ Erros de validação ao criar campanha: {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @extend_schema(
