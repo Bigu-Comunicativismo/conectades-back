@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -8,6 +10,7 @@ from django.core.cache import cache
 from django.conf import settings
 from django.db.models import Q
 from .models import TipoServico, Doacao, DoacaoIndependente
+from .email_service import enviar_notificacao_nova_doacao
 from backend.campanhas.models import Campanha
 from backend.pessoas.models import Pessoa
 from .serializers import (
@@ -15,6 +18,8 @@ from .serializers import (
     DoacaoIndependenteSerializer, DoacaoIndependenteListSerializer,
     AtualizarStatusDoacaoSerializer
 )
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema(
@@ -37,6 +42,12 @@ def criar_doacao(request):
         # Invalidar cache de doações da campanha
         campanha_id = doacao.campanha.id
         cache.delete(f'doacoes_campanha_{campanha_id}')
+
+        notificacao_sucesso, notificacao_msg = enviar_notificacao_nova_doacao(doacao)
+        if notificacao_sucesso:
+            logger.info("Notificação de nova doação enviada: %s", notificacao_msg)
+        else:
+            logger.info("Notificação de nova doação não enviada: %s", notificacao_msg)
         
         return Response(DoacaoSerializer(doacao).data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

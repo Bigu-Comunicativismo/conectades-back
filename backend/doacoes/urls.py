@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from .views_confirmation import confirmar_doacao_via_link
 
 urlpatterns = [
     # Doações tradicionais
@@ -21,6 +22,9 @@ urlpatterns = [
     path('independentes/<int:doacao_id>/atualizar/', views.atualizar_doacao_independente, name='atualizar_doacao_independente'),
     path('independentes/<int:doacao_id>/pausar/', views.pausar_doacao_independente, name='pausar_doacao_independente'),
     path('independentes/<int:doacao_id>/reativar/', views.reativar_doacao_independente, name='reativar_doacao_independente'),
+
+    # Confirmação via link
+    path('confirmar/<str:token>/', confirmar_doacao_via_link, name='confirmar_doacao_link'),
 ]
 
 

@@ -1,0 +1,24 @@
+Olá, {{ beneficiaria_nome }}! 👋
+
+Você recebeu uma nova doação para a campanha **{{ campanha_titulo }}**.
+
+Detalhes da doação:
+• Item: {{ item_nome }}
+• Quantidade: {{ quantidade }} {{ unidade }}
+• Data da doação: {{ data_doacao }}
+• Observações: {{ observacoes }}
+
+Contato da doadora:
+• Nome: {{ doadora_nome }}
+• Email: {{ doadora_email }}
+• Telefone: {{ doadora_telefone }}
+
+Recomendamos entrar em contato com a doadora para combinar a entrega e confirmar o recebimento no sistema.
+
+Para facilitar, clique no link abaixo para confirmar que você recebeu esta doação:
+{{ link_confirmacao }}
+
+Este link expira em {{ expiracao_dias }} dia(s).
+
+Obrigada por fazer parte da rede Conectades! 💜
+
