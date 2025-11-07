@@ -42,6 +42,7 @@ urlpatterns = [
     # APIs Protegidas (requerem JWT)
     path('api/campanhas/', include('backend.campanhas.urls')),
     path('api/doacoes/', include('backend.doacoes.urls')),
+    path('doacoes/', include('backend.doacoes.urls')),
 
     # JWT endpoints (mantidos para compatibilidade, mas use /api/auth/login/)
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
