@@ -313,15 +313,14 @@ class Command(BaseCommand):
         ]
         
         for dados in dados_doacoes:
-            tipo_servico = TipoServico.objects.filter(nome=dados['tipo_nome']).first()
-            if not tipo_servico:
-                tipo_servico = random.choice(tipos_servico)
+            tipo_servico_principal = TipoServico.objects.filter(nome=dados['tipo_nome']).first()
+            if not tipo_servico_principal:
+                tipo_servico_principal = random.choice(tipos_servico)
             
             doacao = DoacaoIndependente.objects.create(
                 doadora=random.choice(doadores),
                 titulo=dados['titulo'],
                 descricao=dados['descricao'],
-                tipo_servico=tipo_servico,
                 data_inicio=timezone.now(),
                 data_fim=timezone.now() + timedelta(days=90),
                 localizacao=random.choice(localizacoes) if localizacoes else None,
@@ -329,9 +328,11 @@ class Command(BaseCommand):
                 ativa=True
             )
             
-            # Adicionar categorias
-            if categorias:
-                doacao.categorias.set(random.sample(categorias, min(2, len(categorias))))
+            # Adicionar categorias (tipos de serviço)
+            categorias_tipos = set([tipo_servico_principal])
+            if len(tipos_servico) > 1:
+                categorias_tipos.update(random.sample(tipos_servico, min(2, len(tipos_servico))))
+            doacao.categorias.set(list(categorias_tipos))
             
             doacoes.append(doacao)
         

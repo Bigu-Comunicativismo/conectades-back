@@ -309,7 +309,6 @@ class Command(BaseCommand):
         organizadoras = usuarios['organizadoras']
         beneficiarias = usuarios['beneficiarias']
         
-        categorias = list(CategoriaInteresse.objects.all())
         localizacoes = list(LocalizacaoInteresse.objects.all())
         
         for i in range(num_campanhas):
@@ -458,7 +457,6 @@ class Command(BaseCommand):
             
             doacao = DoacaoIndependente.objects.create(
                 doadora=doadora,
-                tipo_servico=tipo_servico,
                 titulo=titulo,
                 descricao=random.choice(descricoes),
                 data_inicio=timezone.now(),
@@ -468,8 +466,8 @@ class Command(BaseCommand):
                 ativa=True,
             )
             
-            if categorias:
-                doacao.categorias.set(random.sample(categorias, min(2, len(categorias))))
+            if tipos_servico:
+                doacao.categorias.set(random.sample(tipos_servico, min(2, len(tipos_servico))))
         
         self.stdout.write(self.style.SUCCESS(
             f'   ✅ {num_doacoes_independentes} doações independentes criadas\n'

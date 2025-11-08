@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import TipoServico, Doacao, DoacaoIndependente
 from backend.campanhas.models import Imagem
-from backend.pessoas.models import LocalizacaoInteresse, CategoriaInteresse, Pessoa
+from backend.pessoas.models import LocalizacaoInteresse, Pessoa
 
 
 class AtualizarStatusDoacaoSerializer(serializers.Serializer):
@@ -88,13 +88,12 @@ class DoacaoSerializer(serializers.ModelSerializer):
 class DoacaoIndependenteSerializer(serializers.ModelSerializer):
     """Serializer para doações independentes (leitura/atualização)"""
     doadora_id = serializers.IntegerField(write_only=True, required=False, help_text="ID da doadora (preenchido automaticamente)")
-    tipo_servico_nome = serializers.CharField(source='tipo_servico.nome', read_only=True)
-    tipo_servico_icone = serializers.CharField(source='tipo_servico.icone', read_only=True)
-    tipo_servico_cor = serializers.CharField(source='tipo_servico.cor', read_only=True)
+    categorias = serializers.PrimaryKeyRelatedField(queryset=TipoServico.objects.all(), many=True, required=False)
     doadora_nome = serializers.CharField(source='doadora.nome_exibicao', read_only=True)
     localizacao_nome = serializers.CharField(source='localizacao.nome', read_only=True)
     imagem_url = serializers.SerializerMethodField(read_only=True)
     imagem_alt = serializers.CharField(source='imagem.alt', read_only=True, allow_null=True)
+    categorias_detalhes = TipoServicoSerializer(source='categorias', many=True, read_only=True)
     status_display = serializers.SerializerMethodField(read_only=True)
     
     def get_imagem_url(self, obj):
@@ -109,11 +108,10 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
         model = DoacaoIndependente
         fields = [
             'id', 'doadora', 'doadora_id', 'doadora_nome',
-            'titulo', 'subtitulo', 'descricao', 'tipo_servico', 'tipo_servico_nome',
-            'tipo_servico_icone', 'tipo_servico_cor',
+            'titulo', 'subtitulo', 'descricao',
             'data_inicio', 'data_fim',
             'localizacao', 'localizacao_nome',
-            'categorias', 'imagem', 'imagem_url', 'imagem_alt',
+            'categorias', 'categorias_detalhes', 'imagem', 'imagem_url', 'imagem_alt',
             'whatsapp',
             'status', 'status_display', 'ativa',
             'data_criacao', 'data_atualizacao'
@@ -167,7 +165,6 @@ class DoacaoIndependenteCreateSerializer(serializers.Serializer):
     titulo = serializers.CharField()
     subtitulo = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     descricao = serializers.CharField()
-    tipo_servico = serializers.PrimaryKeyRelatedField(queryset=TipoServico.objects.all())
     imagem = serializers.ImageField(required=False, allow_null=True)
     imagem_alt = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     whatsapp = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -179,7 +176,7 @@ class DoacaoIndependenteCreateSerializer(serializers.Serializer):
         allow_null=True
     )
     categorias = serializers.PrimaryKeyRelatedField(
-        queryset=CategoriaInteresse.objects.all(),
+        queryset=TipoServico.objects.all(),
         many=True,
         required=False,
         allow_empty=True
@@ -190,7 +187,6 @@ class DoacaoIndependenteCreateSerializer(serializers.Serializer):
         doadora = self.context['doadora']
         imagem_arquivo = validated_data.pop('imagem', None)
         imagem_alt = validated_data.pop('imagem_alt', None)
-        tipo_servico = validated_data.pop('tipo_servico')
         localizacao = validated_data.pop('localizacao', None)
         categorias = validated_data.pop('categorias', [])
         doadora_id = validated_data.pop('doadora_id', None)
@@ -216,7 +212,6 @@ class DoacaoIndependenteCreateSerializer(serializers.Serializer):
             titulo=validated_data['titulo'],
             subtitulo=validated_data.get('subtitulo'),
             descricao=validated_data['descricao'],
-            tipo_servico=tipo_servico,
             imagem=imagem_obj,
             data_inicio=validated_data['data_inicio'],
             data_fim=validated_data.get('data_fim'),
@@ -234,13 +229,12 @@ class DoacaoIndependenteCreateSerializer(serializers.Serializer):
 
 class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listagem de doações independentes"""
-    tipo_servico_nome = serializers.CharField(source='tipo_servico.nome', read_only=True)
-    tipo_servico_icone = serializers.CharField(source='tipo_servico.icone', read_only=True)
-    tipo_servico_cor = serializers.CharField(source='tipo_servico.cor', read_only=True)
+    categorias = serializers.PrimaryKeyRelatedField(source='categorias', many=True, read_only=True)
     doadora_nome = serializers.CharField(source='doadora.nome_exibicao', read_only=True)
     localizacao_nome = serializers.CharField(source='localizacao.nome', read_only=True)
     imagem_url = serializers.SerializerMethodField(read_only=True)
     status_display = serializers.SerializerMethodField(read_only=True)
+    categorias_detalhes = TipoServicoSerializer(source='categorias', many=True, read_only=True)
 
     def get_status_display(self, obj):
         return obj.status_display
@@ -254,7 +248,7 @@ class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
         model = DoacaoIndependente
         fields = [
             'id', 'titulo', 'subtitulo', 'descricao',
-            'tipo_servico_nome', 'tipo_servico_icone', 'tipo_servico_cor',
+            'categorias', 'categorias_detalhes',
             'doadora_nome', 'localizacao_nome',
             'status_display', 'ativa',
             'data_inicio', 'data_fim',

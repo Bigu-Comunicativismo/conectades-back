@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from backend.pessoas.models import Pessoa, CategoriaInteresse, LocalizacaoInteresse
+from backend.pessoas.models import Pessoa, LocalizacaoInteresse
 from backend.campanhas.models import Imagem, Organizadora
 
 
@@ -259,13 +259,6 @@ class DoacaoIndependente(models.Model):
         verbose_name="Descrição",
         help_text="Descrição detalhada do serviço oferecido"
     )
-    tipo_servico = models.ForeignKey(
-        TipoServico,
-        on_delete=models.PROTECT,
-        verbose_name="Tipo de Serviço",
-        help_text="Categoria do serviço oferecido"
-    )
-    
     # Detalhes do serviço
     data_inicio = models.DateTimeField(
         verbose_name="Data de Início",
@@ -302,7 +295,7 @@ class DoacaoIndependente(models.Model):
     
     # Contato e informações adicionais
     categorias = models.ManyToManyField(
-        CategoriaInteresse,
+        TipoServico,
         verbose_name="Categorias",
         help_text="Categorias relacionadas ao serviço"
     )

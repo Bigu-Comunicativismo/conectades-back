@@ -286,15 +286,16 @@ class DoacaoAdmin(admin.ModelAdmin):
 
 @admin.register(DoacaoIndependente)
 class DoacaoIndependenteAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'subtitulo', 'doadora', 'tipo_servico', 'status', 'ativa', 'data_inicio')
-    list_filter = ('tipo_servico', 'status', 'ativa', 'data_inicio', 'data_fim')
-    search_fields = ('titulo', 'descricao', 'doadora__nome_completo')
+    list_display = ('titulo', 'subtitulo', 'doadora', 'listar_categorias', 'status', 'ativa', 'data_inicio')
+    list_filter = ('categorias', 'status', 'ativa', 'data_inicio', 'data_fim')
+    search_fields = ('titulo', 'descricao', 'doadora__nome_completo', 'categorias__nome')
     date_hierarchy = 'data_inicio'
     readonly_fields = ('data_criacao', 'data_atualizacao', 'doadora')
+    filter_horizontal = ('categorias',)
     
     fieldsets = (
         ('Informações Básicas', {
-            'fields': ('doadora', 'titulo', 'subtitulo', 'descricao', 'tipo_servico', 'categorias')
+            'fields': ('doadora', 'titulo', 'subtitulo', 'descricao', 'categorias')
         }),
         ('Período', {
             'fields': ('data_inicio', 'data_fim')
@@ -370,6 +371,10 @@ class DoacaoIndependenteAdmin(admin.ModelAdmin):
             extra_context['subtitle'] = f'💝 Você tem {minhas} doação(ões) independente(s). Você só pode editar suas próprias doações.'
         
         return super().changelist_view(request, extra_context)
+    
+    def listar_categorias(self, obj):
+        return ", ".join(obj.categorias.values_list('nome', flat=True))
+    listar_categorias.short_description = 'Categorias'
     
     def frequencia_display(self, obj):
         return obj.frequencia_display

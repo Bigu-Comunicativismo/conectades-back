@@ -368,8 +368,8 @@ def criar_tipo_servico(request):
 def listar_doacoes_independentes(request):
     """Lista doações independentes com filtros"""
     queryset = DoacaoIndependente.objects.filter(ativa=True).select_related(
-        'doadora', 'tipo_servico', 'localizacao'
-    )
+        'doadora', 'localizacao'
+    ).prefetch_related('categorias')
     
     # Filtros
     tipo_servico_param = request.GET.get('tipo_servico')
@@ -379,9 +379,9 @@ def listar_doacoes_independentes(request):
     
     if tipo_servico_param:
         try:
-            queryset = queryset.filter(tipo_servico_id=int(tipo_servico_param))
+            queryset = queryset.filter(categorias__id=int(tipo_servico_param))
         except ValueError:
-            queryset = queryset.filter(tipo_servico__nome__iexact=tipo_servico_param)
+            queryset = queryset.filter(categorias__nome__iexact=tipo_servico_param)
     
     if localizacao:
         queryset = queryset.filter(localizacao__codigo=localizacao)
@@ -433,36 +433,6 @@ def criar_doacao_independente(request):
     if 'imagem_arquivo' in data and 'imagem' not in data:
         data['imagem'] = data.pop('imagem_arquivo')
 
-    if 'tipo_servico' in data:
-        tipo_value = data['tipo_servico']
-        try:
-            if isinstance(tipo_value, str):
-                tipo_value = tipo_value.strip()
-                if tipo_value == '':
-                    conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
-                elif ',' in tipo_value or tipo_value.startswith('['):
-                    parsed = _parse_int_list(tipo_value)
-                    if not parsed:
-                        conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
-                    else:
-                        data['tipo_servico'] = parsed[0]
-                        if 'categorias' not in data or not data['categorias']:
-                            data['categorias'] = parsed
-                else:
-                    data['tipo_servico'] = int(tipo_value)
-            elif isinstance(tipo_value, (list, tuple)):
-                parsed = _parse_int_list(list(tipo_value))
-                if not parsed:
-                    conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
-                else:
-                    data['tipo_servico'] = parsed[0]
-                    if 'categorias' not in data or not data['categorias']:
-                        data['categorias'] = parsed
-            else:
-                data['tipo_servico'] = int(tipo_value)
-        except (ValueError, TypeError):
-            conversion_errors['tipo_servico'] = ['Informe um ID numérico válido.']
-
     if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
         try:
             data['localizacao'] = int(data['localizacao'])
@@ -501,8 +471,8 @@ def detalhar_doacao_independente(request, doacao_id: int):
     """Retorna detalhes de uma doação independente"""
     try:
         doacao = DoacaoIndependente.objects.select_related(
-            'doadora', 'tipo_servico', 'localizacao'
-        ).get(id=doacao_id, ativa=True)
+            'doadora', 'localizacao'
+        ).prefetch_related('categorias').get(id=doacao_id, ativa=True)
         
         serializer = DoacaoIndependenteSerializer(doacao)
         return Response(serializer.data)
@@ -552,36 +522,6 @@ def atualizar_doacao_independente(request, doacao_id: int):
 
         if 'imagem_arquivo' in data and 'imagem' not in data:
             data['imagem'] = data.pop('imagem_arquivo')
-
-        if 'tipo_servico' in data:
-            tipo_value = data['tipo_servico']
-            try:
-                if isinstance(tipo_value, str):
-                    tipo_value = tipo_value.strip()
-                    if tipo_value == '':
-                        data.pop('tipo_servico')
-                    elif ',' in tipo_value or tipo_value.startswith('['):
-                        parsed = _parse_int_list(tipo_value)
-                        if parsed:
-                            data['tipo_servico'] = parsed[0]
-                            if 'categorias' not in data or not data['categorias']:
-                                data['categorias'] = parsed
-                        else:
-                            conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
-                    else:
-                        data['tipo_servico'] = int(tipo_value)
-                elif isinstance(tipo_value, (list, tuple)):
-                    parsed = _parse_int_list(list(tipo_value))
-                    if parsed:
-                        data['tipo_servico'] = parsed[0]
-                        if 'categorias' not in data or not data['categorias']:
-                            data['categorias'] = parsed
-                    else:
-                        conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
-                else:
-                    data['tipo_servico'] = int(tipo_value)
-            except (ValueError, TypeError):
-                conversion_errors['tipo_servico'] = ['Informe um ID numérico válido.']
 
         if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
             try:
