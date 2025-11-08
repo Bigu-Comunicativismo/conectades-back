@@ -108,6 +108,7 @@ class CampanhaSerializer(serializers.ModelSerializer):
     itens_completos = serializers.SerializerMethodField(read_only=True)
     dias_restantes = serializers.SerializerMethodField(read_only=True)
     itens = ItemCampanhaSerializer(many=True, read_only=True)
+    itens_campanha = ItemCampanhaSerializer(source='itens', many=True, read_only=True)
     doacoes = DoacaoSerializer(many=True, read_only=True)
     
     def get_percentual_atingido(self, obj):
@@ -139,8 +140,8 @@ class CampanhaSerializer(serializers.ModelSerializer):
             'imagem_arquivo', 'imagem_alt', 'imagem_url',
             'categorias', 'whatsapp', 'localizacao',
             'data_inicio', 'prazo', 'dias_restantes',
-            'percentual_atingido', 'status_campanha', 
-            'total_itens', 'itens_completos', 'itens', 'itens_cadastro', 'doacoes',
+            'percentual_atingido', 'status_campanha',
+            'total_itens', 'itens_completos', 'itens', 'itens_campanha', 'itens_cadastro', 'doacoes',
             'ativa'
         ]
         read_only_fields = ['id', 'beneficiaria', 'percentual_atingido', 'status_campanha', 'total_itens', 'itens_completos', 'dias_restantes', 'doacoes', 'imagem_url', 'ativa']

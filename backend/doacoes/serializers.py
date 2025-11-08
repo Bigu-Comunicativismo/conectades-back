@@ -86,6 +86,13 @@ class DoacaoSerializer(serializers.ModelSerializer):
 class DoacaoIndependenteSerializer(serializers.ModelSerializer):
     """Serializer para doações independentes"""
     doadora_id = serializers.IntegerField(write_only=True, help_text="ID da doadora (preenchido automaticamente)")
+    categorias = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
+        help_text="Lista de IDs de categorias de interesse"
+    )
     tipo_servico_nome = serializers.CharField(source='tipo_servico.nome', read_only=True)
     tipo_servico_icone = serializers.CharField(source='tipo_servico.icone', read_only=True)
     tipo_servico_cor = serializers.CharField(source='tipo_servico.cor', read_only=True)
@@ -134,8 +141,14 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         doadora_id = validated_data.pop('doadora_id')
-        validated_data['doadora_id'] = doadora_id
-        return DoacaoIndependente.objects.create(**validated_data)
+        categorias = validated_data.pop('categorias', None)
+        doacao = DoacaoIndependente.objects.create(
+            doadora_id=doadora_id,
+            **validated_data
+        )
+        if categorias is not None:
+            doacao.categorias.set(categorias)
+        return doacao
 
 
 class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
