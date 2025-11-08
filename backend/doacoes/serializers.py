@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import TipoServico, Doacao, DoacaoIndependente
+from backend.campanhas.models import Imagem
+from backend.pessoas.models import LocalizacaoInteresse, CategoriaInteresse
 
 
 class AtualizarStatusDoacaoSerializer(serializers.Serializer):
@@ -84,70 +86,47 @@ class DoacaoSerializer(serializers.ModelSerializer):
 
 
 class DoacaoIndependenteSerializer(serializers.ModelSerializer):
-    """Serializer para doações independentes"""
-    doadora_id = serializers.IntegerField(write_only=True, help_text="ID da doadora (preenchido automaticamente)")
-    status = serializers.CharField(
-        required=False,
-        allow_blank=True,
-        help_text="Status atual"
-    )
-    ativa = serializers.BooleanField(
-        required=False,
-        allow_null=True,
-        help_text="Se a doação está ativa para receber solicitações"
-    )
-    categorias = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=False,
-        allow_empty=True,
-        help_text="Lista de IDs de categorias de interesse"
-    )
+    """Serializer para doações independentes (leitura/atualização)"""
+    doadora_id = serializers.IntegerField(write_only=True, required=False, help_text="ID da doadora (preenchido automaticamente)")
     tipo_servico_nome = serializers.CharField(source='tipo_servico.nome', read_only=True)
     tipo_servico_icone = serializers.CharField(source='tipo_servico.icone', read_only=True)
     tipo_servico_cor = serializers.CharField(source='tipo_servico.cor', read_only=True)
     doadora_nome = serializers.CharField(source='doadora.nome_exibicao', read_only=True)
     localizacao_nome = serializers.CharField(source='localizacao.nome', read_only=True)
-    dias_semana_display = serializers.SerializerMethodField(read_only=True)
-    horario_display = serializers.SerializerMethodField(read_only=True)
-    frequencia_display = serializers.SerializerMethodField(read_only=True)
+    imagem_url = serializers.SerializerMethodField(read_only=True)
     status_display = serializers.SerializerMethodField(read_only=True)
-    capacidade_total_semanal = serializers.SerializerMethodField(read_only=True)
     
-    def get_dias_semana_display(self, obj):
-        return obj.dias_semana_display
-    
-    def get_horario_display(self, obj):
-        return obj.horario_display
-    
-    def get_frequencia_display(self, obj):
-        return obj.frequencia_display
+    def get_imagem_url(self, obj):
+        if obj.imagem and obj.imagem.src:
+            return obj.imagem.src.url
+        return None
     
     def get_status_display(self, obj):
         return obj.status_display
-    
-    def get_capacidade_total_semanal(self, obj):
-        return obj.capacidade_total_semanal
 
     class Meta:
         model = DoacaoIndependente
         fields = [
             'id', 'doadora', 'doadora_id', 'doadora_nome',
-            'titulo', 'descricao', 'tipo_servico', 'tipo_servico_nome', 
+            'titulo', 'descricao', 'tipo_servico', 'tipo_servico_nome',
             'tipo_servico_icone', 'tipo_servico_cor',
-            'quantidade_pessoas', 'duracao_atendimento', 'frequencia_semanal',
-            'frequencia_display', 'data_inicio', 'data_fim',
-            'dias_semana', 'dias_semana_display', 'horario_inicio', 'horario_fim',
-            'horario_display', 'localizacao', 'localizacao_nome', 'endereco_detalhado',
-            'whatsapp', 'email_contato', 'categorias', 'imagem',
-            'status', 'status_display', 'ativa', 'requisitos', 'observacoes',
-            'agendamentos_confirmados', 'agendamentos_realizados',
-            'capacidade_total_semanal', 'data_criacao', 'data_atualizacao'
-        ]
-        read_only_fields = [
-            'id', 'doadora', 'agendamentos_confirmados', 'agendamentos_realizados',
+            'data_inicio', 'data_fim',
+            'localizacao', 'localizacao_nome',
+            'categorias', 'imagem', 'imagem_url',
+            'status', 'status_display', 'ativa',
             'data_criacao', 'data_atualizacao'
         ]
+        read_only_fields = [
+            'id', 'doadora',
+            'status_display', 'imagem_url',
+            'data_criacao', 'data_atualizacao'
+        ]
+        extra_kwargs = {
+            'categorias': {'required': False},
+            'localizacao': {'required': False, 'allow_null': True},
+            'imagem': {'required': False, 'allow_null': True},
+            'data_fim': {'required': False, 'allow_null': True},
+        }
 
     def create(self, validated_data):
         doadora_id = validated_data.pop('doadora_id')
@@ -173,6 +152,59 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
         return doacao
 
 
+class DoacaoIndependenteCreateSerializer(serializers.Serializer):
+    """Serializer simplificado para criação de doações independentes"""
+    titulo = serializers.CharField()
+    descricao = serializers.CharField()
+    tipo_servico = serializers.PrimaryKeyRelatedField(queryset=TipoServico.objects.all())
+    imagem = serializers.ImageField(required=False, allow_null=True)
+    data_inicio = serializers.DateTimeField()
+    data_fim = serializers.DateTimeField(required=False, allow_null=True)
+    localizacao = serializers.PrimaryKeyRelatedField(
+        queryset=LocalizacaoInteresse.objects.all(),
+        required=False,
+        allow_null=True
+    )
+    categorias = serializers.PrimaryKeyRelatedField(
+        queryset=CategoriaInteresse.objects.all(),
+        many=True,
+        required=False,
+        allow_empty=True
+    )
+
+    def create(self, validated_data):
+        doadora = self.context['doadora']
+        imagem_arquivo = validated_data.pop('imagem', None)
+        tipo_servico = validated_data.pop('tipo_servico')
+        localizacao = validated_data.pop('localizacao', None)
+        categorias = validated_data.pop('categorias', [])
+
+        imagem_obj = None
+        if imagem_arquivo:
+            imagem_obj = Imagem.objects.create(
+                src=imagem_arquivo,
+                alt=f"Imagem da doação independente {validated_data['titulo']}"
+            )
+
+        doacao = DoacaoIndependente.objects.create(
+            doadora=doadora,
+            titulo=validated_data['titulo'],
+            descricao=validated_data['descricao'],
+            tipo_servico=tipo_servico,
+            imagem=imagem_obj,
+            data_inicio=validated_data['data_inicio'],
+            data_fim=validated_data.get('data_fim'),
+            localizacao=localizacao,
+            status='ativa',
+            ativa=True
+        )
+
+        if categorias:
+            doacao.categorias.set(categorias)
+
+        return doacao
+
+
 class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listagem de doações independentes"""
     tipo_servico_nome = serializers.CharField(source='tipo_servico.nome', read_only=True)
@@ -180,30 +212,26 @@ class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
     tipo_servico_cor = serializers.CharField(source='tipo_servico.cor', read_only=True)
     doadora_nome = serializers.CharField(source='doadora.nome_exibicao', read_only=True)
     localizacao_nome = serializers.CharField(source='localizacao.nome', read_only=True)
-    dias_semana_display = serializers.SerializerMethodField(read_only=True)
-    horario_display = serializers.SerializerMethodField(read_only=True)
-    frequencia_display = serializers.SerializerMethodField(read_only=True)
+    imagem_url = serializers.SerializerMethodField(read_only=True)
     status_display = serializers.SerializerMethodField(read_only=True)
-    
-    def get_dias_semana_display(self, obj):
-        return obj.dias_semana_display
-    
-    def get_horario_display(self, obj):
-        return obj.horario_display
-    
-    def get_frequencia_display(self, obj):
-        return obj.frequencia_display
-    
+
     def get_status_display(self, obj):
         return obj.status_display
+
+    def get_imagem_url(self, obj):
+        if obj.imagem and obj.imagem.src:
+            return obj.imagem.src.url
+        return None
 
     class Meta:
         model = DoacaoIndependente
         fields = [
-            'id', 'titulo', 'descricao', 'tipo_servico_nome', 'tipo_servico_icone', 'tipo_servico_cor',
-            'doadora_nome', 'quantidade_pessoas', 'frequencia_display', 'horario_display',
-            'dias_semana_display', 'localizacao_nome', 'status_display', 'ativa',
-            'data_inicio', 'data_fim', 'whatsapp'
+            'id', 'titulo', 'descricao',
+            'tipo_servico_nome', 'tipo_servico_icone', 'tipo_servico_cor',
+            'doadora_nome', 'localizacao_nome',
+            'status_display', 'ativa',
+            'data_inicio', 'data_fim',
+            'imagem_url'
         ]
 
 

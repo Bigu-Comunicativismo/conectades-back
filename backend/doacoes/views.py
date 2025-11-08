@@ -18,7 +18,7 @@ from backend.pessoas.models import Pessoa
 from .serializers import (
     TipoServicoSerializer, DoacaoSerializer, 
     DoacaoIndependenteSerializer, DoacaoIndependenteListSerializer,
-    AtualizarStatusDoacaoSerializer
+    DoacaoIndependenteCreateSerializer, AtualizarStatusDoacaoSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -404,7 +404,7 @@ def listar_doacoes_independentes(request):
     summary='Criar Doação Independente',
     description='Cria uma nova doação independente (serviço contínuo).',
     tags=['Doações Independentes'],
-    request=DoacaoIndependenteSerializer,
+    request=DoacaoIndependenteCreateSerializer,
     responses={201: DoacaoIndependenteSerializer, 400: OpenApiTypes.OBJECT}
 )
 @api_view(['POST'])
@@ -423,8 +423,6 @@ def criar_doacao_independente(request):
     data = _normalize_request_data(request.data)
     if not isinstance(data, dict):
         data = dict(data)
-
-    data['doadora_id'] = request.user.id
 
     # Converter campos que podem chegar como string
     conversion_errors = {}
@@ -447,16 +445,13 @@ def criar_doacao_independente(request):
         except (ValueError, TypeError):
             conversion_errors['categorias'] = ['Informe uma lista de IDs numéricos (ex: "1,2,3").']
 
-    if 'dias_semana' in data:
-        try:
-            data['dias_semana'] = _parse_int_list(data['dias_semana'])
-        except (ValueError, TypeError):
-            conversion_errors['dias_semana'] = ['Informe uma lista de números inteiros (ex: "0,1,2" para Segunda, Terça, Quarta).']
-
     if conversion_errors:
         return Response(conversion_errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    serializer = DoacaoIndependenteSerializer(data=data)
+
+    serializer = DoacaoIndependenteCreateSerializer(
+        data=data,
+        context={'doadora': request.user}
+    )
     if serializer.is_valid():
         doacao = serializer.save()
         return Response(DoacaoIndependenteSerializer(doacao).data, status=status.HTTP_201_CREATED)
@@ -542,12 +537,6 @@ def atualizar_doacao_independente(request, doacao_id: int):
                 data['categorias'] = _parse_int_list(data['categorias'])
             except (ValueError, TypeError):
                 conversion_errors['categorias'] = ['Informe uma lista de IDs numéricos (ex: "1,2,3").']
-
-        if 'dias_semana' in data:
-            try:
-                data['dias_semana'] = _parse_int_list(data['dias_semana'])
-            except (ValueError, TypeError):
-                conversion_errors['dias_semana'] = ['Informe uma lista de números inteiros (ex: "0,1,2" para Segunda, Terça, Quarta).']
 
         if conversion_errors:
             return Response(conversion_errors, status=status.HTTP_400_BAD_REQUEST)

@@ -440,39 +440,37 @@ class Command(BaseCommand):
         localizacoes = list(LocalizacaoInteresse.objects.all())
         
         descricoes = [
-            'Ofereço aulas particulares de reforço escolar',
-            'Faço entregas de mercadorias gratuitamente',
-            'Ofereço consultas médicas gratuitas',
-            'Disponibilizo serviço de tradução de documentos',
-            'Ofereço aulas de informática básica',
-            'Faço pequenos consertos domésticos',
-            'Ofereço corte de cabelo gratuito',
-            'Disponibilizo consultoria jurídica gratuita',
-            'Ofereço aulas de música para crianças',
-            'Faço design gráfico para materiais de divulgação',
+            'Ofereço aulas particulares de reforço escolar.',
+            'Faço entregas de mercadorias gratuitamente.',
+            'Ofereço consultas médicas gratuitas.',
+            'Disponibilizo serviço de tradução de documentos.',
+            'Ofereço aulas de informática básica.',
+            'Faço pequenos consertos domésticos.',
+            'Ofereço corte de cabelo gratuito.',
+            'Disponibilizo consultoria jurídica gratuita.',
+            'Ofereço aulas de música para crianças.',
+            'Faço design gráfico para materiais de divulgação.',
         ]
         
-        disponibilidades = [
-            'Segundas e quartas, das 14h às 18h',
-            'Terças e quintas, período da manhã',
-            'Fins de semana, horário flexível',
-            'Todos os dias, mediante agendamento',
-            'De segunda a sexta, das 9h às 17h',
-        ]
-        
-        for i in range(num_doacoes_independentes):
+        for _ in range(num_doacoes_independentes):
             doadora = random.choice(doadoras)
             tipo_servico = random.choice(tipos_servico)
+            titulo = f"{tipo_servico.nome} voluntário(a)"
             
-            DoacaoIndependente.objects.create(
+            doacao = DoacaoIndependente.objects.create(
                 doadora=doadora,
                 tipo_servico=tipo_servico,
+                titulo=titulo,
                 descricao=random.choice(descricoes),
-                disponibilidade=random.choice(disponibilidades),
+                data_inicio=timezone.now(),
+                data_fim=timezone.now() + timedelta(days=random.randint(30, 120)),
                 localizacao=random.choice(localizacoes) if localizacoes else None,
-                categoria=random.choice(categorias) if categorias else None,
-                disponivel=random.choice([True, True, True, False]),  # 75% disponível
+                status='ativa',
+                ativa=True,
             )
+            
+            if categorias:
+                doacao.categorias.set(random.sample(categorias, min(2, len(categorias))))
         
         self.stdout.write(self.style.SUCCESS(
             f'   ✅ {num_doacoes_independentes} doações independentes criadas\n'
@@ -514,7 +512,7 @@ class Command(BaseCommand):
         
         # Doações Independentes
         total_doacoes_ind = DoacaoIndependente.objects.count()
-        disponiveis = DoacaoIndependente.objects.filter(disponivel=True).count()
+        disponiveis = DoacaoIndependente.objects.filter(ativa=True).count()
         self.stdout.write(self.style.HTTP_INFO('💼 DOAÇÕES INDEPENDENTES:'))
         self.stdout.write(f'   • Total: {total_doacoes_ind}')
         self.stdout.write(f'   • Disponíveis: {disponiveis}\n')

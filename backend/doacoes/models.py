@@ -274,21 +274,6 @@ class DoacaoIndependente(models.Model):
     )
     
     # Detalhes do serviço
-    quantidade_pessoas = models.PositiveIntegerField(
-        verbose_name="Quantidade de Pessoas",
-        help_text="Quantas pessoas podem ser atendidas por vez"
-    )
-    duracao_atendimento = models.PositiveIntegerField(
-        verbose_name="Duração do Atendimento (minutos)",
-        help_text="Tempo médio de cada atendimento em minutos"
-    )
-    frequencia_semanal = models.PositiveIntegerField(
-        default=1,
-        verbose_name="Frequência Semanal",
-        help_text="Quantas vezes por semana o serviço é oferecido"
-    )
-    
-    # Período de disponibilidade
     data_inicio = models.DateTimeField(
         verbose_name="Data de Início",
         help_text="Quando o serviço começará a ser oferecido"
@@ -300,22 +285,6 @@ class DoacaoIndependente(models.Model):
         help_text="Quando o serviço terminará (opcional)"
     )
     
-    # Horários de funcionamento
-    dias_semana = models.JSONField(
-        default=list,
-        verbose_name="Dias da Semana",
-        help_text="Dias da semana em que o serviço está disponível (0=Segunda, 6=Domingo)"
-    )
-    horario_inicio = models.TimeField(
-        verbose_name="Horário de Início",
-        help_text="Horário que o atendimento começa"
-    )
-    horario_fim = models.TimeField(
-        verbose_name="Horário de Fim",
-        help_text="Horário que o atendimento termina"
-    )
-    
-    # Localização
     localizacao = models.ForeignKey(
         LocalizacaoInteresse,
         on_delete=models.SET_NULL,
@@ -332,19 +301,6 @@ class DoacaoIndependente(models.Model):
     )
     
     # Contato e informações adicionais
-    whatsapp = models.CharField(
-        max_length=20,
-        verbose_name="WhatsApp",
-        help_text="Número para contato direto"
-    )
-    email_contato = models.EmailField(
-        blank=True,
-        null=True,
-        verbose_name="Email de Contato",
-        help_text="Email para contato (opcional)"
-    )
-    
-    # Categorias e imagem
     categorias = models.ManyToManyField(
         CategoriaInteresse,
         verbose_name="Categorias",
@@ -374,30 +330,6 @@ class DoacaoIndependente(models.Model):
     )
     
     # Requisitos e observações
-    requisitos = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Requisitos",
-        help_text="Requisitos para quem quer ser atendido"
-    )
-    observacoes = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Observações",
-        help_text="Observações adicionais sobre o serviço"
-    )
-    
-    # Controle de agendamentos
-    agendamentos_confirmados = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Agendamentos Confirmados",
-        help_text="Quantidade de agendamentos confirmados"
-    )
-    agendamentos_realizados = models.PositiveIntegerField(
-        default=0,
-        verbose_name="Agendamentos Realizados",
-        help_text="Quantidade de agendamentos já realizados"
-    )
     
     # Timestamps
     data_criacao = models.DateTimeField(
@@ -418,31 +350,7 @@ class DoacaoIndependente(models.Model):
         return f"{self.titulo} - {self.doadora.nome_exibicao}"
 
     @property
-    def dias_semana_display(self):
-        """Retorna os dias da semana formatados"""
-        dias_nomes = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo']
-        return [dias_nomes[dia] for dia in self.dias_semana if 0 <= dia <= 6]
-
-    @property
-    def horario_display(self):
-        """Retorna o horário formatado"""
-        return f"{self.horario_inicio.strftime('%H:%M')} às {self.horario_fim.strftime('%H:%M')}"
-
-    @property
-    def frequencia_display(self):
-        """Retorna a frequência formatada"""
-        if self.frequencia_semanal == 1:
-            return "1 vez por semana"
-        return f"{self.frequencia_semanal} vezes por semana"
-
-    @property
-    def capacidade_total_semanal(self):
-        """Calcula a capacidade total de atendimentos por semana"""
-        return self.quantidade_pessoas * self.frequencia_semanal
-
-    @property
     def status_display(self):
-        """Retorna o status formatado"""
         status_map = {
             'ativa': '🟢 Ativa',
             'pausada': '⏸️ Pausada',
@@ -474,16 +382,6 @@ class DoacaoIndependente(models.Model):
         self.status = 'cancelada'
         self.ativa = False
         self.save(update_fields=['status', 'ativa'])
-
-    def incrementar_agendamento_confirmado(self):
-        """Incrementa contador de agendamentos confirmados"""
-        self.agendamentos_confirmados += 1
-        self.save(update_fields=['agendamentos_confirmados'])
-
-    def incrementar_agendamento_realizado(self):
-        """Incrementa contador de agendamentos realizados"""
-        self.agendamentos_realizados += 1
-        self.save(update_fields=['agendamentos_realizados'])
 
 
 # ==================== SINAIS DJANGO ====================

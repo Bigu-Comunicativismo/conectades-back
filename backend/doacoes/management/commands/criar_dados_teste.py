@@ -292,55 +292,23 @@ class Command(BaseCommand):
         dados_doacoes = [
             {
                 'titulo': 'Atendimento Odontológico Voluntário',
-                'descricao': 'Consultas odontológicas gratuitas para pessoas de baixa renda. Atendimento completo incluindo limpeza e tratamento básico.',
-                'tipo_codigo': 'saude',
-                'quantidade_pessoas': 5,
-                'duracao_atendimento': 60,
-                'frequencia_semanal': 2,
-                'dias_semana': [1, 3],  # Terça e Quinta
-                'horario_inicio': '14:00',
-                'horario_fim': '18:00',
-                'whatsapp': '11987654321',
-                'requisitos': 'Levar documentos pessoais e cartão SUS'
+                'descricao': 'Consultas odontológicas gratuitas para pessoas de baixa renda.',
+                'tipo_codigo': 'saude'
             },
             {
                 'titulo': 'Consultoria Jurídica Pro Bono',
                 'descricao': 'Atendimento jurídico gratuito para questões trabalhistas e previdenciárias.',
-                'tipo_codigo': 'juridico',
-                'quantidade_pessoas': 3,
-                'duracao_atendimento': 45,
-                'frequencia_semanal': 1,
-                'dias_semana': [4],  # Sexta
-                'horario_inicio': '09:00',
-                'horario_fim': '12:00',
-                'whatsapp': '11976543210',
-                'requisitos': 'Trazer documentação relacionada ao caso'
+                'tipo_codigo': 'juridico'
             },
             {
                 'titulo': 'Aulas de Reforço Escolar',
                 'descricao': 'Aulas de matemática e português para crianças do ensino fundamental.',
-                'tipo_codigo': 'educacao',
-                'quantidade_pessoas': 10,
-                'duracao_atendimento': 90,
-                'frequencia_semanal': 2,
-                'dias_semana': [1, 3],  # Terça e Quinta
-                'horario_inicio': '16:00',
-                'horario_fim': '18:00',
-                'whatsapp': '11965432109',
-                'requisitos': 'Crianças de 7 a 12 anos'
+                'tipo_codigo': 'educacao'
             },
             {
                 'titulo': 'Cortes de Cabelo Gratuitos',
                 'descricao': 'Cortes de cabelo gratuitos para pessoas em situação de vulnerabilidade.',
-                'tipo_codigo': 'beleza',
-                'quantidade_pessoas': 8,
-                'duracao_atendimento': 30,
-                'frequencia_semanal': 1,
-                'dias_semana': [5],  # Sábado
-                'horario_inicio': '10:00',
-                'horario_fim': '16:00',
-                'whatsapp': '11954321098',
-                'requisitos': 'Por ordem de chegada'
+                'tipo_codigo': 'beleza'
             }
         ]
         
@@ -354,21 +322,11 @@ class Command(BaseCommand):
                 titulo=dados['titulo'],
                 descricao=dados['descricao'],
                 tipo_servico=tipo_servico,
-                quantidade_pessoas=dados['quantidade_pessoas'],
-                duracao_atendimento=dados['duracao_atendimento'],
-                frequencia_semanal=dados['frequencia_semanal'],
                 data_inicio=timezone.now(),
                 data_fim=timezone.now() + timedelta(days=90),
-                dias_semana=dados['dias_semana'],
-                horario_inicio=dados['horario_inicio'],
-                horario_fim=dados['horario_fim'],
                 localizacao=random.choice(localizacoes) if localizacoes else None,
-                whatsapp=dados['whatsapp'],
-                requisitos=dados['requisitos'],
                 status='ativa',
-                ativa=True,
-                agendamentos_confirmados=random.randint(0, 10),
-                agendamentos_realizados=random.randint(0, 5)
+                ativa=True
             )
             
             # Adicionar categorias

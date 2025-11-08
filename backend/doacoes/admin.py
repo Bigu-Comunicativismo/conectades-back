@@ -286,34 +286,24 @@ class DoacaoAdmin(admin.ModelAdmin):
 
 @admin.register(DoacaoIndependente)
 class DoacaoIndependenteAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'doadora', 'tipo_servico', 'quantidade_pessoas', 'frequencia_display', 'status', 'data_inicio')
+    list_display = ('titulo', 'doadora', 'tipo_servico', 'status', 'ativa', 'data_inicio')
     list_filter = ('tipo_servico', 'status', 'ativa', 'data_inicio', 'data_fim')
-    search_fields = ('titulo', 'descricao', 'doadora__nome_completo', 'endereco_detalhado')
+    search_fields = ('titulo', 'descricao', 'doadora__nome_completo')
     date_hierarchy = 'data_inicio'
-    readonly_fields = ('data_criacao', 'data_atualizacao', 'agendamentos_confirmados', 'agendamentos_realizados', 'doadora')
+    readonly_fields = ('data_criacao', 'data_atualizacao', 'doadora')
     
     fieldsets = (
         ('Informações Básicas', {
             'fields': ('doadora', 'titulo', 'descricao', 'tipo_servico', 'categorias')
         }),
-        ('Detalhes do Serviço', {
-            'fields': ('quantidade_pessoas', 'duracao_atendimento', 'frequencia_semanal', 'imagem')
+        ('Período', {
+            'fields': ('data_inicio', 'data_fim')
         }),
-        ('Período e Horários', {
-            'fields': ('data_inicio', 'data_fim', 'dias_semana', 'horario_inicio', 'horario_fim')
+        ('Localização e Imagem', {
+            'fields': ('localizacao', 'imagem')
         }),
-        ('Localização', {
-            'fields': ('localizacao', 'endereco_detalhado')
-        }),
-        ('Contato', {
-            'fields': ('whatsapp', 'email_contato')
-        }),
-        ('Status e Controle', {
-            'fields': ('status', 'ativa', 'agendamentos_confirmados', 'agendamentos_realizados')
-        }),
-        ('Requisitos e Observações', {
-            'fields': ('requisitos', 'observacoes'),
-            'classes': ('collapse',)
+        ('Status', {
+            'fields': ('status', 'ativa')
         }),
         ('Timestamps', {
             'fields': ('data_criacao', 'data_atualizacao'),
