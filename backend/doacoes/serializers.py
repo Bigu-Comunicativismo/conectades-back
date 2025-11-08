@@ -86,14 +86,14 @@ class DoacaoSerializer(serializers.ModelSerializer):
 class DoacaoIndependenteSerializer(serializers.ModelSerializer):
     """Serializer para doações independentes"""
     doadora_id = serializers.IntegerField(write_only=True, help_text="ID da doadora (preenchido automaticamente)")
-    status = serializers.ChoiceField(
-        choices=DoacaoIndependente.STATUS_CHOICES,
+    status = serializers.CharField(
         required=False,
         allow_blank=True,
         help_text="Status atual"
     )
     ativa = serializers.BooleanField(
         required=False,
+        allow_null=True,
         help_text="Se a doação está ativa para receber solicitações"
     )
     categorias = serializers.ListField(
@@ -152,8 +152,20 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         doadora_id = validated_data.pop('doadora_id')
         categorias = validated_data.pop('categorias', None)
+        ativa = validated_data.pop('ativa', None)
+        status = validated_data.pop('status', None)
+
+        if ativa is None:
+            ativa = True
+        if not status:
+            status = 'ativa'
+        elif status not in dict(DoacaoIndependente.STATUS_CHOICES):
+            raise serializers.ValidationError({'status': 'Valor inválido.'})
+
         doacao = DoacaoIndependente.objects.create(
             doadora_id=doadora_id,
+            ativa=ativa,
+            status=status,
             **validated_data
         )
         if categorias is not None:
