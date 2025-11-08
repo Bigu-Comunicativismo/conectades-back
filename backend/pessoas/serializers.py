@@ -29,55 +29,79 @@ class LocalizacaoInteresseSerializer(serializers.ModelSerializer):
 class PessoaSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
-        help_text="Senha do usuário (obrigatório para criação)"
+        required=False,
+        allow_blank=False,
+        help_text="Senha do usuário (obrigatório apenas para criação)"
     )
     
-    # Campos obrigatórios
+    # Campos principais
     nome_completo = serializers.CharField(
+        required=False,
+        allow_blank=False,
         help_text="Nome completo da pessoa"
     )
     cpf = serializers.CharField(
+        required=False,
+        allow_blank=False,
         help_text="CPF da pessoa (formato: 000.000.000-00)"
     )
     telefone = serializers.CharField(
+        required=False,
+        allow_blank=False,
         help_text="Número de telefone com DDD"
     )
     email = serializers.EmailField(
+        required=False,
+        allow_blank=False,
         help_text="E-mail para contato"
     )
     tipo_usuario = serializers.PrimaryKeyRelatedField(
         queryset=TipoUsuario.objects.all(),
+        required=False,
         help_text="Tipo de usuário: beneficiária, doadora ou organizadora"
     )
     genero = serializers.PrimaryKeyRelatedField(
         queryset=Genero.objects.all(),
+        required=False,
         help_text="Gênero/identidade de gênero"
     )
     cidade = serializers.CharField(
+        required=False,
+        allow_blank=False,
         help_text="Cidade onde mora"
     )
     bairro = serializers.CharField(
+        required=False,
+        allow_blank=False,
         help_text="Bairro onde mora"
     )
     
-    # Campos obrigatórios adicionais
+    # Campos adicionais (opcionais para atualização)
     nome_social = serializers.CharField(
+        required=False,
+        allow_blank=True,
         help_text="Nome que você gostaria de ser chamada"
     )
     mini_bio = serializers.CharField(
+        required=False,
+        allow_blank=True,
         help_text="Breve descrição sobre você"
     )
     avatar = serializers.ImageField(
+        required=False,
+        allow_null=True,
         help_text="Foto de perfil"
     )
     categorias_interesse = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=CategoriaInteresse.objects.all(),
+        required=False,
         help_text="Lista de categorias de interesse"
     )
     localizacoes_interesse = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=LocalizacaoInteresse.objects.all(),
+        required=False,
         help_text="Lista de localizações de interesse"
     )
     
@@ -129,6 +153,9 @@ class PessoaSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
+        categorias = validated_data.pop('categorias_interesse', None)
+        localizacoes = validated_data.pop('localizacoes_interesse', None)
+        
         if password:
             instance.set_password(password)
         
@@ -136,6 +163,12 @@ class PessoaSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         
         instance.save()
+        
+        if categorias is not None:
+            instance.categorias_interesse.set(categorias)
+        if localizacoes is not None:
+            instance.localizacoes_interesse.set(localizacoes)
+        
         return instance
 
 class PessoaLoginSerializer(serializers.Serializer):

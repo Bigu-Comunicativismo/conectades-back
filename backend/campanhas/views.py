@@ -553,6 +553,8 @@ def editar_campanha(request, campanha_id: int):
         # Processar dados do request
         data = _normalize_request_data(request.data)
 
+        itens_payload = None
+
         # Converter campos numéricos simples
         if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
             try:
@@ -571,10 +573,81 @@ def editar_campanha(request, campanha_id: int):
                     'error': 'Formato inválido para categorias. Use IDs separados por vírgula (ex: "1,2,3").'
                 }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Processar itens_cadastro (permitir atualização conjunta)
+        if 'itens_cadastro' in data:
+            raw_itens = data.pop('itens_cadastro')
+            if raw_itens in (None, '', []):
+                itens_payload = []
+            else:
+                if isinstance(raw_itens, str):
+                    try:
+                        itens_payload = json.loads(raw_itens)
+                    except json.JSONDecodeError:
+                        return Response({
+                            'error': 'Formato inválido para itens_cadastro. Use JSON válido.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                elif isinstance(raw_itens, list):
+                    itens_payload = raw_itens
+                else:
+                    return Response({
+                        'error': 'Formato inválido para itens_cadastro. Use uma lista ou JSON string.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                if not isinstance(itens_payload, list):
+                    return Response({
+                        'error': 'itens_cadastro deve ser uma lista de objetos.',
+                        'exemplo': '[{"nome":"Arroz","quantidade_solicitada":10,"unidade":"kg"}]'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # Validação básica antes de aplicar
+                itens_validados = []
+                for idx, item in enumerate(itens_payload):
+                    if not isinstance(item, dict):
+                        return Response({
+                            'error': f'Item na posição {idx} deve ser um objeto.',
+                            'recebido': item
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
+                    item_id = item.get('id')
+                    nome = item.get('nome')
+                    quantidade = item.get('quantidade_solicitada')
+                    unidade = item.get('unidade', 'unidade')
+
+                    if not nome:
+                        return Response({
+                            'error': f'Item na posição {idx} está sem o campo "nome".',
+                            'item_recebido': item
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
+                    if quantidade is None:
+                        return Response({
+                            'error': f'Item "{nome}" está sem o campo "quantidade_solicitada".',
+                            'item_recebido': item
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
+                    try:
+                        quantidade_int = int(quantidade)
+                        if quantidade_int <= 0:
+                            raise ValueError
+                    except (ValueError, TypeError):
+                        return Response({
+                            'error': f'Item "{nome}" tem quantidade_solicitada inválida.',
+                            'recebido': quantidade,
+                            'dica': 'Informe um número inteiro positivo.'
+                        }, status=status.HTTP_400_BAD_REQUEST)
+
+                    itens_validados.append({
+                        'id': item_id,
+                        'nome': nome,
+                        'quantidade_solicitada': quantidade_int,
+                        'unidade': unidade or 'unidade'
+                    })
+
+                itens_payload = itens_validados
+
         # Não permitir alterar organizadora ou beneficiaria via edição
         data.pop('organizadora_id', None)
         data.pop('beneficiaria_id', None)
-        data.pop('itens_cadastro', None)  # Itens não são editados aqui
         
         # Se houver nova imagem, criar objeto Imagem
         if 'imagem_arquivo' in data and data['imagem_arquivo']:
@@ -606,6 +679,53 @@ def editar_campanha(request, campanha_id: int):
         
         if serializer.is_valid():
             campanha_atualizada = serializer.save()
+
+            # Atualizar itens (criação/edição em lote)
+            if itens_payload is not None:
+                from .models import ItemCampanha
+                itens_existentes = {item.id: item for item in campanha_atualizada.itens.all()}
+                itens_processados = set()
+
+                for item in itens_payload:
+                    item_id = item.get('id')
+                    if item_id:
+                        if item_id not in itens_existentes:
+                            return Response({
+                                'error': f'Item com ID {item_id} não pertence a esta campanha.'
+                            }, status=status.HTTP_400_BAD_REQUEST)
+                        item_obj = itens_existentes[item_id]
+                        if item['quantidade_solicitada'] < item_obj.quantidade_contribuida:
+                            return Response({
+                                'error': f'Item "{item_obj.nome}" possui {item_obj.quantidade_contribuida} unidades contribuídas, '
+                                         f'o que excede a nova quantidade solicitada ({item["quantidade_solicitada"]}).'
+                            }, status=status.HTTP_400_BAD_REQUEST)
+                        item_obj.nome = item['nome']
+                        item_obj.quantidade_solicitada = item['quantidade_solicitada']
+                        item_obj.unidade = item['unidade']
+                        item_obj.save(update_fields=['nome', 'quantidade_solicitada', 'unidade'])
+                        itens_processados.add(item_id)
+                    else:
+                        ItemCampanha.objects.create(
+                            campanha=campanha_atualizada,
+                            nome=item['nome'],
+                            quantidade_solicitada=item['quantidade_solicitada'],
+                            unidade=item['unidade']
+                        )
+
+                # Remover itens não enviados no payload (opcional: manter, aqui removeremos)
+                itens_para_remover = set(itens_existentes.keys()) - itens_processados
+                if itens_para_remover:
+                    itens_com_contribuicao = [
+                        itens_existentes[item_id].nome
+                        for item_id in itens_para_remover
+                        if itens_existentes[item_id].quantidade_contribuida > 0
+                    ]
+                    if itens_com_contribuicao:
+                        return Response({
+                            'error': 'Não é possível remover itens que já possuem contribuições.',
+                            'itens': itens_com_contribuicao
+                        }, status=status.HTTP_400_BAD_REQUEST)
+                    ItemCampanha.objects.filter(id__in=itens_para_remover).delete()
             
             # Atualizar categorias (many-to-many)
             if 'categorias' in data:

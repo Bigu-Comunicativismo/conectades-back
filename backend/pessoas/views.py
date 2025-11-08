@@ -1049,6 +1049,11 @@ def atualizar_perfil(request):
     for field in list(data.keys()):
         data[field] = normalize_field(data[field])
     
+    # Remover campos enviados como string vazia (Swagger envia "" quando campo fica em branco)
+    for field, value in list(data.items()):
+        if isinstance(value, str) and value.strip() == '':
+            data.pop(field)
+    
     # Processar campos que devem ser arrays (IDs separados por vírgula)
     for field in ['categorias_interesse', 'localizacoes_interesse']:
         if field in data and data[field]:
