@@ -86,6 +86,16 @@ class DoacaoSerializer(serializers.ModelSerializer):
 class DoacaoIndependenteSerializer(serializers.ModelSerializer):
     """Serializer para doações independentes"""
     doadora_id = serializers.IntegerField(write_only=True, help_text="ID da doadora (preenchido automaticamente)")
+    status = serializers.ChoiceField(
+        choices=DoacaoIndependente.STATUS_CHOICES,
+        required=False,
+        allow_blank=True,
+        help_text="Status atual"
+    )
+    ativa = serializers.BooleanField(
+        required=False,
+        help_text="Se a doação está ativa para receber solicitações"
+    )
     categorias = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,

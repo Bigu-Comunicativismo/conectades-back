@@ -8,6 +8,7 @@ from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample
 from django.core.cache import cache
 from django.db import transaction
 from django.conf import settings
+from django.http import QueryDict
 from .models import Pessoa, CodigoVerificacao
 from .serializers import (
     PessoaSerializer,
@@ -1037,28 +1038,45 @@ def atualizar_perfil(request):
             }, status=status.HTTP_400_BAD_REQUEST)
     
     # Normalizar campos multipart (mesmo fix aplicado em campanhas)
-    data = dict(request.data)
-    
-    def normalize_field(value):
-        """Se o valor é uma lista com um único elemento, retorna o elemento"""
-        if isinstance(value, list) and len(value) == 1:
-            return value[0]
-        return value
-    
-    # Normalizar todos os campos
-    for field in list(data.keys()):
-        data[field] = normalize_field(data[field])
+    if isinstance(request.data, QueryDict):
+        data = {}
+        for key, values in request.data.lists():
+            if len(values) == 1:
+                data[key] = values[0]
+            else:
+                data[key] = values
+    else:
+        data = dict(request.data)
     
     # Remover campos enviados como string vazia (Swagger envia "" quando campo fica em branco)
     for field, value in list(data.items()):
-        if isinstance(value, str) and value.strip() == '':
+        if isinstance(value, list) and len(value) == 1:
+            value = value[0]
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if cleaned == '':
+                data.pop(field)
+                continue
+            data[field] = cleaned
+        elif value in (None, [], {}):
             data.pop(field)
+    
+    # Converter campos inteiros simples
+    for field in ['tipo_usuario', 'genero']:
+        if field in data:
+            try:
+                data[field] = int(data[field])
+            except (ValueError, TypeError):
+                return Response({
+                    'error': f'Formato inválido para {field}',
+                    'recebido': data[field],
+                    'formato_esperado': 'Informe um ID numérico'
+                }, status=status.HTTP_400_BAD_REQUEST)
     
     # Processar campos que devem ser arrays (IDs separados por vírgula)
     for field in ['categorias_interesse', 'localizacoes_interesse']:
-        if field in data and data[field]:
+        if field in data:
             value = data[field]
-            # Se for string, converter para lista de IDs
             if isinstance(value, str):
                 try:
                     data[field] = [int(id.strip()) for id in value.split(',') if id.strip()]
@@ -1068,16 +1086,17 @@ def atualizar_perfil(request):
                         'recebido': value,
                         'formato_esperado': 'IDs separados por vírgula (ex: "1,2,3")'
                     }, status=status.HTTP_400_BAD_REQUEST)
-            # Se já for lista, garantir que são inteiros
             elif isinstance(value, list):
                 try:
-                    data[field] = [int(id) for id in value if id]
+                    data[field] = [int(id) for id in value if id not in (None, '', [])]
                 except ValueError:
                     return Response({
                         'error': f'Formato inválido para {field}',
                         'recebido': value,
                         'formato_esperado': 'Lista de IDs inteiros'
                     }, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                data.pop(field)
     
     serializer = PessoaSerializer(
         request.user,
