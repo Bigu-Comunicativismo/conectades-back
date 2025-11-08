@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import TipoServico, Doacao, DoacaoIndependente
 from backend.campanhas.models import Imagem
-from backend.pessoas.models import LocalizacaoInteresse, CategoriaInteresse
+from backend.pessoas.models import LocalizacaoInteresse, CategoriaInteresse, Pessoa
 
 
 class AtualizarStatusDoacaoSerializer(serializers.Serializer):
@@ -94,6 +94,7 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
     doadora_nome = serializers.CharField(source='doadora.nome_exibicao', read_only=True)
     localizacao_nome = serializers.CharField(source='localizacao.nome', read_only=True)
     imagem_url = serializers.SerializerMethodField(read_only=True)
+    imagem_alt = serializers.CharField(source='imagem.alt', read_only=True, allow_null=True)
     status_display = serializers.SerializerMethodField(read_only=True)
     
     def get_imagem_url(self, obj):
@@ -108,11 +109,12 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
         model = DoacaoIndependente
         fields = [
             'id', 'doadora', 'doadora_id', 'doadora_nome',
-            'titulo', 'descricao', 'tipo_servico', 'tipo_servico_nome',
+            'titulo', 'subtitulo', 'descricao', 'tipo_servico', 'tipo_servico_nome',
             'tipo_servico_icone', 'tipo_servico_cor',
             'data_inicio', 'data_fim',
             'localizacao', 'localizacao_nome',
-            'categorias', 'imagem', 'imagem_url',
+            'categorias', 'imagem', 'imagem_url', 'imagem_alt',
+            'whatsapp',
             'status', 'status_display', 'ativa',
             'data_criacao', 'data_atualizacao'
         ]
@@ -123,16 +125,24 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             'categorias': {'required': False},
+            'subtitulo': {'required': False, 'allow_null': True, 'allow_blank': True},
             'localizacao': {'required': False, 'allow_null': True},
             'imagem': {'required': False, 'allow_null': True},
             'data_fim': {'required': False, 'allow_null': True},
+            'whatsapp': {'required': False, 'allow_null': True, 'allow_blank': True},
         }
 
     def create(self, validated_data):
-        doadora_id = validated_data.pop('doadora_id')
+        doadora_id = validated_data.pop('doadora_id', None)
         categorias = validated_data.pop('categorias', None)
         ativa = validated_data.pop('ativa', None)
         status = validated_data.pop('status', None)
+
+        if doadora_id is None:
+            doadora = self.context.get('doadora')
+            if not doadora:
+                raise serializers.ValidationError({'doadora_id': 'Informe a doadora responsável.'})
+            doadora_id = doadora.id
 
         if ativa is None:
             ativa = True
@@ -155,9 +165,12 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
 class DoacaoIndependenteCreateSerializer(serializers.Serializer):
     """Serializer simplificado para criação de doações independentes"""
     titulo = serializers.CharField()
+    subtitulo = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     descricao = serializers.CharField()
     tipo_servico = serializers.PrimaryKeyRelatedField(queryset=TipoServico.objects.all())
     imagem = serializers.ImageField(required=False, allow_null=True)
+    imagem_alt = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    whatsapp = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     data_inicio = serializers.DateTimeField()
     data_fim = serializers.DateTimeField(required=False, allow_null=True)
     localizacao = serializers.PrimaryKeyRelatedField(
@@ -171,30 +184,44 @@ class DoacaoIndependenteCreateSerializer(serializers.Serializer):
         required=False,
         allow_empty=True
     )
+    doadora_id = serializers.IntegerField(required=False)
 
     def create(self, validated_data):
         doadora = self.context['doadora']
         imagem_arquivo = validated_data.pop('imagem', None)
+        imagem_alt = validated_data.pop('imagem_alt', None)
         tipo_servico = validated_data.pop('tipo_servico')
         localizacao = validated_data.pop('localizacao', None)
         categorias = validated_data.pop('categorias', [])
+        doadora_id = validated_data.pop('doadora_id', None)
+
+        selected_doadora = doadora
+        if doadora_id is not None and doadora_id != doadora.id:
+            if not doadora.is_staff:
+                raise serializers.ValidationError({'doadora_id': 'Você não pode criar doações para outra pessoa.'})
+            try:
+                selected_doadora = Pessoa.objects.get(id=doadora_id)
+            except Pessoa.DoesNotExist:
+                raise serializers.ValidationError({'doadora_id': 'Pessoa informada não encontrada.'})
 
         imagem_obj = None
         if imagem_arquivo:
             imagem_obj = Imagem.objects.create(
                 src=imagem_arquivo,
-                alt=f"Imagem da doação independente {validated_data['titulo']}"
+                alt=imagem_alt or f"Imagem da doação independente {validated_data['titulo']}"
             )
 
         doacao = DoacaoIndependente.objects.create(
-            doadora=doadora,
+            doadora=selected_doadora,
             titulo=validated_data['titulo'],
+            subtitulo=validated_data.get('subtitulo'),
             descricao=validated_data['descricao'],
             tipo_servico=tipo_servico,
             imagem=imagem_obj,
             data_inicio=validated_data['data_inicio'],
             data_fim=validated_data.get('data_fim'),
             localizacao=localizacao,
+            whatsapp=validated_data.get('whatsapp'),
             status='ativa',
             ativa=True
         )
@@ -226,12 +253,12 @@ class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoacaoIndependente
         fields = [
-            'id', 'titulo', 'descricao',
+            'id', 'titulo', 'subtitulo', 'descricao',
             'tipo_servico_nome', 'tipo_servico_icone', 'tipo_servico_cor',
             'doadora_nome', 'localizacao_nome',
             'status_display', 'ativa',
             'data_inicio', 'data_fim',
-            'imagem_url'
+            'imagem_url', 'whatsapp'
         ]
 
 

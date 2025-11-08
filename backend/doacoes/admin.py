@@ -286,7 +286,7 @@ class DoacaoAdmin(admin.ModelAdmin):
 
 @admin.register(DoacaoIndependente)
 class DoacaoIndependenteAdmin(admin.ModelAdmin):
-    list_display = ('titulo', 'doadora', 'tipo_servico', 'status', 'ativa', 'data_inicio')
+    list_display = ('titulo', 'subtitulo', 'doadora', 'tipo_servico', 'status', 'ativa', 'data_inicio')
     list_filter = ('tipo_servico', 'status', 'ativa', 'data_inicio', 'data_fim')
     search_fields = ('titulo', 'descricao', 'doadora__nome_completo')
     date_hierarchy = 'data_inicio'
@@ -294,13 +294,16 @@ class DoacaoIndependenteAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Informações Básicas', {
-            'fields': ('doadora', 'titulo', 'descricao', 'tipo_servico', 'categorias')
+            'fields': ('doadora', 'titulo', 'subtitulo', 'descricao', 'tipo_servico', 'categorias')
         }),
         ('Período', {
             'fields': ('data_inicio', 'data_fim')
         }),
-        ('Localização e Imagem', {
-            'fields': ('localizacao', 'imagem')
+        ('Localização e Contato', {
+            'fields': ('localizacao', 'whatsapp')
+        }),
+        ('Imagem', {
+            'fields': ('imagem',)
         }),
         ('Status', {
             'fields': ('status', 'ativa')

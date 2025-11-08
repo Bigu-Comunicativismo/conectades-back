@@ -248,6 +248,13 @@ class DoacaoIndependente(models.Model):
         verbose_name="Título do Serviço",
         help_text="Ex: 'Atendimento Odontológico Voluntário'"
     )
+    subtitulo = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Subtítulo",
+        help_text="Subtítulo do serviço (opcional)"
+    )
     descricao = models.TextField(
         verbose_name="Descrição",
         help_text="Descrição detalhada do serviço oferecido"
@@ -284,6 +291,13 @@ class DoacaoIndependente(models.Model):
         null=True,
         verbose_name="Endereço Detalhado",
         help_text="Endereço específico ou instruções de localização"
+    )
+    whatsapp = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="WhatsApp",
+        help_text="Número de contato via WhatsApp"
     )
     
     # Contato e informações adicionais

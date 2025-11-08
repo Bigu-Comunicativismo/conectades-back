@@ -430,10 +430,37 @@ def criar_doacao_independente(request):
     # Converter campos que podem chegar como string
     conversion_errors = {}
 
-    if 'tipo_servico' in data and isinstance(data['tipo_servico'], str):
+    if 'imagem_arquivo' in data and 'imagem' not in data:
+        data['imagem'] = data.pop('imagem_arquivo')
+
+    if 'tipo_servico' in data:
+        tipo_value = data['tipo_servico']
         try:
-            data['tipo_servico'] = int(data['tipo_servico'])
-        except ValueError:
+            if isinstance(tipo_value, str):
+                tipo_value = tipo_value.strip()
+                if tipo_value == '':
+                    conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
+                elif ',' in tipo_value or tipo_value.startswith('['):
+                    parsed = _parse_int_list(tipo_value)
+                    if not parsed:
+                        conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
+                    else:
+                        data['tipo_servico'] = parsed[0]
+                        if 'categorias' not in data or not data['categorias']:
+                            data['categorias'] = parsed
+                else:
+                    data['tipo_servico'] = int(tipo_value)
+            elif isinstance(tipo_value, (list, tuple)):
+                parsed = _parse_int_list(list(tipo_value))
+                if not parsed:
+                    conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
+                else:
+                    data['tipo_servico'] = parsed[0]
+                    if 'categorias' not in data or not data['categorias']:
+                        data['categorias'] = parsed
+            else:
+                data['tipo_servico'] = int(tipo_value)
+        except (ValueError, TypeError):
             conversion_errors['tipo_servico'] = ['Informe um ID numérico válido.']
 
     if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
@@ -442,7 +469,7 @@ def criar_doacao_independente(request):
         except ValueError:
             conversion_errors['localizacao'] = ['Informe um ID numérico válido.']
 
-    if 'categorias' in data:
+    if 'categorias' in data and data['categorias'] not in (None, '', []):
         try:
             data['categorias'] = _parse_int_list(data['categorias'])
         except (ValueError, TypeError):
@@ -523,10 +550,37 @@ def atualizar_doacao_independente(request, doacao_id: int):
 
         conversion_errors = {}
 
-        if 'tipo_servico' in data and isinstance(data['tipo_servico'], str) and data['tipo_servico'].strip():
+        if 'imagem_arquivo' in data and 'imagem' not in data:
+            data['imagem'] = data.pop('imagem_arquivo')
+
+        if 'tipo_servico' in data:
+            tipo_value = data['tipo_servico']
             try:
-                data['tipo_servico'] = int(data['tipo_servico'])
-            except ValueError:
+                if isinstance(tipo_value, str):
+                    tipo_value = tipo_value.strip()
+                    if tipo_value == '':
+                        data.pop('tipo_servico')
+                    elif ',' in tipo_value or tipo_value.startswith('['):
+                        parsed = _parse_int_list(tipo_value)
+                        if parsed:
+                            data['tipo_servico'] = parsed[0]
+                            if 'categorias' not in data or not data['categorias']:
+                                data['categorias'] = parsed
+                        else:
+                            conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
+                    else:
+                        data['tipo_servico'] = int(tipo_value)
+                elif isinstance(tipo_value, (list, tuple)):
+                    parsed = _parse_int_list(list(tipo_value))
+                    if parsed:
+                        data['tipo_servico'] = parsed[0]
+                        if 'categorias' not in data or not data['categorias']:
+                            data['categorias'] = parsed
+                    else:
+                        conversion_errors['tipo_servico'] = ['Informe ao menos um tipo de serviço.']
+                else:
+                    data['tipo_servico'] = int(tipo_value)
+            except (ValueError, TypeError):
                 conversion_errors['tipo_servico'] = ['Informe um ID numérico válido.']
 
         if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
@@ -535,7 +589,7 @@ def atualizar_doacao_independente(request, doacao_id: int):
             except ValueError:
                 conversion_errors['localizacao'] = ['Informe um ID numérico válido.']
 
-        if 'categorias' in data:
+        if 'categorias' in data and data['categorias'] not in (None, '', []):
             try:
                 data['categorias'] = _parse_int_list(data['categorias'])
             except (ValueError, TypeError):
