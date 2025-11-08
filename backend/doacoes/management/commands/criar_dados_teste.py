@@ -293,27 +293,27 @@ class Command(BaseCommand):
             {
                 'titulo': 'Atendimento Odontológico Voluntário',
                 'descricao': 'Consultas odontológicas gratuitas para pessoas de baixa renda.',
-                'tipo_codigo': 'saude'
+                'tipo_nome': 'Saúde'
             },
             {
                 'titulo': 'Consultoria Jurídica Pro Bono',
                 'descricao': 'Atendimento jurídico gratuito para questões trabalhistas e previdenciárias.',
-                'tipo_codigo': 'juridico'
+                'tipo_nome': 'Jurídico'
             },
             {
                 'titulo': 'Aulas de Reforço Escolar',
                 'descricao': 'Aulas de matemática e português para crianças do ensino fundamental.',
-                'tipo_codigo': 'educacao'
+                'tipo_nome': 'Educação'
             },
             {
                 'titulo': 'Cortes de Cabelo Gratuitos',
                 'descricao': 'Cortes de cabelo gratuitos para pessoas em situação de vulnerabilidade.',
-                'tipo_codigo': 'beleza'
+                'tipo_nome': 'Beleza'
             }
         ]
         
         for dados in dados_doacoes:
-            tipo_servico = TipoServico.objects.filter(codigo=dados['tipo_codigo']).first()
+            tipo_servico = TipoServico.objects.filter(nome=dados['tipo_nome']).first()
             if not tipo_servico:
                 tipo_servico = random.choice(tipos_servico)
             

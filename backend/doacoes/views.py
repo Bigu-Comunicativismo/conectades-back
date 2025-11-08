@@ -372,13 +372,16 @@ def listar_doacoes_independentes(request):
     )
     
     # Filtros
-    tipo_servico = request.GET.get('tipo_servico')
+    tipo_servico_param = request.GET.get('tipo_servico')
     localizacao = request.GET.get('localizacao')
     status_filter = request.GET.get('status')
     busca = request.GET.get('busca')
     
-    if tipo_servico:
-        queryset = queryset.filter(tipo_servico__codigo=tipo_servico)
+    if tipo_servico_param:
+        try:
+            queryset = queryset.filter(tipo_servico_id=int(tipo_servico_param))
+        except ValueError:
+            queryset = queryset.filter(tipo_servico__nome__iexact=tipo_servico_param)
     
     if localizacao:
         queryset = queryset.filter(localizacao__codigo=localizacao)

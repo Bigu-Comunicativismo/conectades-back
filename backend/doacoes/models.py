@@ -14,12 +14,6 @@ class TipoServico(models.Model):
         verbose_name="Nome",
         help_text="Nome do tipo de serviço (ex: Saúde, Jurídico, Educação)"
     )
-    codigo = models.CharField(
-        max_length=50,
-        unique=True,
-        verbose_name="Código",
-        help_text="Código único para identificação (ex: saude, juridico, educacao)"
-    )
     descricao = models.TextField(
         blank=True,
         null=True,
@@ -61,14 +55,6 @@ class TipoServico(models.Model):
 
     def __str__(self):
         return self.nome
-
-    def save(self, *args, **kwargs):
-        if not self.codigo:
-            # Gera código a partir do nome
-            import unicodedata
-            from django.utils.text import slugify
-            self.codigo = slugify(unicodedata.normalize('NFKD', self.nome).encode('ascii', 'ignore').decode('ascii'))
-        super().save(*args, **kwargs)
 
 
 class Doacao(models.Model):

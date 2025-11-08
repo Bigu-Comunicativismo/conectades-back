@@ -59,9 +59,9 @@ class DoacaoForm(forms.ModelForm):
 
 @admin.register(TipoServico)
 class TipoServicoAdmin(admin.ModelAdmin):
-    list_display = ('nome', 'codigo', 'icone', 'cor', 'ativo', 'ordem', 'data_criacao')
+    list_display = ('nome', 'icone', 'cor', 'ativo', 'ordem', 'data_criacao')
     list_filter = ('ativo', 'data_criacao')
-    search_fields = ('nome', 'codigo', 'descricao')
+    search_fields = ('nome', 'descricao')
     list_editable = ('ativo', 'ordem', 'cor')
     ordering = ['ordem', 'nome']
 

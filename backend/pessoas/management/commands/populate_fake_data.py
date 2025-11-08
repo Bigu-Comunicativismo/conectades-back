@@ -133,17 +133,16 @@ class Command(BaseCommand):
         
         # Verificar TipoServico
         tipos_servico = [
-            ('saude', 'Saúde', 'Serviços de saúde', 'fas fa-stethoscope', '#dc3545'),
-            ('educacao', 'Educação', 'Serviços educacionais', 'fas fa-graduation-cap', '#007bff'),
-            ('juridico', 'Jurídico', 'Serviços jurídicos', 'fas fa-gavel', '#6c757d'),
-            ('transporte', 'Transporte', 'Serviços de transporte', 'fas fa-car', '#ffc107'),
-            ('tecnologia', 'Tecnologia', 'Serviços de TI', 'fas fa-laptop', '#17a2b8'),
+            ('Saúde', 'Serviços de saúde', 'fas fa-stethoscope', '#dc3545'),
+            ('Educação', 'Serviços educacionais', 'fas fa-graduation-cap', '#007bff'),
+            ('Jurídico', 'Serviços jurídicos', 'fas fa-gavel', '#6c757d'),
+            ('Transporte', 'Serviços de transporte', 'fas fa-car', '#ffc107'),
+            ('Tecnologia', 'Serviços de TI', 'fas fa-laptop', '#17a2b8'),
         ]
-        for codigo, nome, desc, icone, cor in tipos_servico:
+        for nome, desc, icone, cor in tipos_servico:
             TipoServico.objects.get_or_create(
-                codigo=codigo,
+                nome=nome,
                 defaults={
-                    'nome': nome,
                     'descricao': desc,
                     'icone': icone,
                     'cor': cor,

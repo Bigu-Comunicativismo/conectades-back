@@ -10,7 +10,6 @@ class Command(BaseCommand):
         tipos_servico = [
             {
                 'nome': 'Saúde',
-                'codigo': 'saude',
                 'descricao': 'Serviços de saúde e atendimento médico',
                 'icone': 'fas fa-stethoscope',
                 'cor': '#dc3545',
@@ -18,7 +17,6 @@ class Command(BaseCommand):
             },
             {
                 'nome': 'Jurídico',
-                'codigo': 'juridico',
                 'descricao': 'Serviços jurídicos e consultoria legal',
                 'icone': 'fas fa-gavel',
                 'cor': '#6f42c1',
@@ -26,7 +24,6 @@ class Command(BaseCommand):
             },
             {
                 'nome': 'Educação',
-                'codigo': 'educacao',
                 'descricao': 'Serviços educacionais e ensino',
                 'icone': 'fas fa-graduation-cap',
                 'cor': '#007bff',
@@ -34,7 +31,6 @@ class Command(BaseCommand):
             },
             {
                 'nome': 'Técnico',
-                'codigo': 'tecnico',
                 'descricao': 'Serviços técnicos e manutenção',
                 'icone': 'fas fa-tools',
                 'cor': '#28a745',
@@ -42,7 +38,6 @@ class Command(BaseCommand):
             },
             {
                 'nome': 'Social',
-                'codigo': 'social',
                 'descricao': 'Serviços sociais e assistência',
                 'icone': 'fas fa-heart',
                 'cor': '#e83e8c',
@@ -50,7 +45,6 @@ class Command(BaseCommand):
             },
             {
                 'nome': 'Psicológico',
-                'codigo': 'psicologico',
                 'descricao': 'Serviços de apoio psicológico',
                 'icone': 'fas fa-brain',
                 'cor': '#fd7e14',
@@ -58,7 +52,6 @@ class Command(BaseCommand):
             },
             {
                 'nome': 'Beleza e Estética',
-                'codigo': 'beleza',
                 'descricao': 'Serviços de beleza e estética',
                 'icone': 'fas fa-cut',
                 'cor': '#20c997',
@@ -66,7 +59,6 @@ class Command(BaseCommand):
             },
             {
                 'nome': 'Outro',
-                'codigo': 'outro',
                 'descricao': 'Outros tipos de serviço',
                 'icone': 'fas fa-cog',
                 'cor': '#6c757d',
@@ -76,9 +68,10 @@ class Command(BaseCommand):
 
         # Criar tipos de serviço
         for tipo_data in tipos_servico:
+            defaults = tipo_data.copy()
             tipo, created = TipoServico.objects.get_or_create(
-                codigo=tipo_data['codigo'],
-                defaults=tipo_data
+                nome=tipo_data['nome'],
+                defaults=defaults
             )
             if created:
                 self.stdout.write(

@@ -30,10 +30,10 @@ class TipoServicoSerializer(serializers.ModelSerializer):
     class Meta:
         model = TipoServico
         fields = [
-            'id', 'nome', 'codigo', 'descricao', 'icone', 'cor', 
+            'id', 'nome', 'descricao', 'icone', 'cor', 
             'ativo', 'ordem', 'data_criacao'
         ]
-        read_only_fields = ['id', 'codigo', 'data_criacao']
+        read_only_fields = ['id', 'data_criacao']
 
 
 class DoacaoSerializer(serializers.ModelSerializer):
