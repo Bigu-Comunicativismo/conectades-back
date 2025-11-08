@@ -1,3 +1,6 @@
+import json
+
+from django.http import QueryDict
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -10,6 +13,57 @@ from django.conf import settings
 from django.db.models import Q
 from .models import Organizadora, Campanha, ItemCampanha, SolicitacaoBeneficiaria
 from .serializers import OrganizadoraSerializer, CampanhaSerializer, ItemCampanhaSerializer
+
+
+def _normalize_request_data(data):
+    """
+    Converte QueryDict/multipart para um dicionário mutável,
+    transformando listas de um único valor em um valor simples.
+    """
+    if isinstance(data, QueryDict):
+        normalized = {}
+        for key, values in data.lists():
+            if len(values) == 1:
+                normalized[key] = values[0]
+            else:
+                normalized[key] = values
+        return normalized
+    return data
+
+
+def _parse_int_list(value):
+    """
+    Recebe diferentes formatos (string, lista, JSON) e retorna lista de inteiros.
+    """
+    if value in (None, '', []):
+        return []
+
+    if isinstance(value, list):
+        items = value
+    elif isinstance(value, str):
+        value = value.strip()
+        if value.startswith('[') and value.endswith(']'):
+            try:
+                decoded = json.loads(value)
+                if isinstance(decoded, list):
+                    items = decoded
+                else:
+                    items = [decoded]
+            except json.JSONDecodeError:
+                items = [item.strip() for item in value.split(',')]
+        else:
+            items = [item.strip() for item in value.split(',')]
+    else:
+        items = [value]
+
+    result = []
+    for item in items:
+        if item in (None, '', []):
+            continue
+        if isinstance(item, list):
+            raise ValueError('Lista aninhada não suportada')
+        result.append(int(item))
+    return result
 from .serializers_solicitacao import SolicitacaoRespostaSerializer
 
 @extend_schema(
@@ -61,7 +115,6 @@ from .serializers_solicitacao import SolicitacaoRespostaSerializer
 @parser_classes([MultiPartParser, FormParser, JSONParser])
 def criar_campanha(request):
     """API para criar campanha com itens opcionais. Doadoras e Beneficiárias podem criar campanhas."""
-    import json
     from backend.pessoas.models import TipoUsuario
     
     # Validar Content-Type se for multipart/form-data
@@ -93,34 +146,20 @@ def criar_campanha(request):
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     # Processar dados do request - converter para dict mutável
-    data = dict(request.data)
+    data = _normalize_request_data(request.data)
     
     import logging
     logger = logging.getLogger(__name__)
     logger.info(f"🔍 Dados recebidos (tipos): categorias={type(data.get('categorias'))}, itens_cadastro={type(data.get('itens_cadastro'))}")
     logger.info(f"🔍 Valores: categorias={data.get('categorias')}, itens_cadastro={data.get('itens_cadastro')}")
     
-    # Helper: Normalizar campos que vêm como lista de um elemento do multipart
-    def normalize_field(value):
-        """Se o valor é uma lista com um único elemento, retorna o elemento"""
-        if isinstance(value, list) and len(value) == 1:
-            return value[0]
-        return value
-    
-    # Normalizar todos os campos (multipart envia alguns campos como lista)
-    # IMPORTANTE: Incluir imagem_arquivo para normalizar arquivos também
-    for field in ['titulo', 'subtitulo', 'descricao', 'beneficiaria_id', 'imagem_arquivo', 'imagem_alt', 
-                  'categorias', 'whatsapp', 'localizacao', 'data_inicio', 'prazo', 'itens_cadastro']:
-        if field in data:
-            data[field] = normalize_field(data[field])
-    
     logger.info(f"✅ Após normalização: categorias={type(data.get('categorias'))}, itens_cadastro={type(data.get('itens_cadastro'))}, imagem_arquivo={type(data.get('imagem_arquivo'))}")
     
     # Processar categorias (se vier como string separada por vírgula)
-    if 'categorias' in data and isinstance(data['categorias'], str):
+    if 'categorias' in data:
         try:
-            data['categorias'] = [int(cat_id.strip()) for cat_id in data['categorias'].split(',') if cat_id.strip()]
-        except ValueError:
+            data['categorias'] = _parse_int_list(data['categorias'])
+        except (ValueError, TypeError):
             return Response({
                 'error': 'Formato inválido para categorias. Use IDs separados por vírgula (ex: "1,2,3")'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -512,15 +551,24 @@ def editar_campanha(request, campanha_id: int):
             }, status=status.HTTP_403_FORBIDDEN)
         
         # Processar dados do request
-        data = request.data.copy()
-        
-        # Processar categorias (se vier como string separada por vírgula)
-        if 'categorias' in data and isinstance(data['categorias'], str):
+        data = _normalize_request_data(request.data)
+
+        # Converter campos numéricos simples
+        if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
             try:
-                data['categorias'] = [int(cat_id.strip()) for cat_id in data['categorias'].split(',') if cat_id.strip()]
+                data['localizacao'] = int(data['localizacao'])
             except ValueError:
                 return Response({
-                    'error': 'Formato inválido para categorias. Use IDs separados por vírgula (ex: "1,2,3")'
+                    'error': 'Formato inválido para localizacao. Informe um ID numérico.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Processar categorias (string, lista ou JSON)
+        if 'categorias' in data:
+            try:
+                data['categorias'] = _parse_int_list(data['categorias'])
+            except (ValueError, TypeError):
+                return Response({
+                    'error': 'Formato inválido para categorias. Use IDs separados por vírgula (ex: "1,2,3").'
                 }, status=status.HTTP_400_BAD_REQUEST)
         
         # Não permitir alterar organizadora ou beneficiaria via edição
