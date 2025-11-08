@@ -507,6 +507,11 @@ def detalhar_campanha(request, campanha_id: int):
                 'localizacao': {'type': 'integer', 'description': 'ID da localização'},
                 'data_inicio': {'type': 'string', 'format': 'date-time', 'description': 'Data de início (YYYY-MM-DDTHH:MM:SS)'},
                 'prazo': {'type': 'string', 'format': 'date-time', 'description': 'Prazo final (YYYY-MM-DDTHH:MM:SS)'},
+                'itens_cadastro': {
+                    'type': 'string',
+                    'description': 'JSON string com lista de itens. Para editar, envie objetos com `id`. '
+                                   'Itens omitidos serão removidos caso não tenham contribuições.'
+                },
             }
         }
     },
