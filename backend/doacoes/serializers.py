@@ -229,7 +229,7 @@ class DoacaoIndependenteCreateSerializer(serializers.Serializer):
 
 class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
     """Serializer simplificado para listagem de doações independentes"""
-    categorias = serializers.PrimaryKeyRelatedField(source='categorias', many=True, read_only=True)
+    categorias = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
     doadora_nome = serializers.CharField(source='doadora.nome_exibicao', read_only=True)
     localizacao_nome = serializers.CharField(source='localizacao.nome', read_only=True)
     imagem_url = serializers.SerializerMethodField(read_only=True)
