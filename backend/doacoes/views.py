@@ -1,5 +1,7 @@
+import json
 import logging
 
+from django.http import QueryDict
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -20,6 +22,72 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _is_multipart_request(request):
+    content_type = request.META.get('CONTENT_TYPE', '')
+    return content_type.startswith('multipart/form-data')
+
+
+def _validate_multipart_boundary(request):
+    """
+    Garante que requisições multipart contenham o boundary obrigatório.
+    """
+    content_type = request.META.get('CONTENT_TYPE', '')
+    if _is_multipart_request(request) and 'boundary=' not in content_type:
+        return False
+    return True
+
+
+def _normalize_request_data(data):
+    """
+    Normaliza dados vindos de multipart/form-data para evitar listas com um único valor.
+    """
+    if isinstance(data, QueryDict):
+        data = data.copy()
+        normalized = {}
+        for key, values in data.lists():
+            if len(values) == 1:
+                normalized[key] = values[0]
+            else:
+                normalized[key] = values
+        return normalized
+    return data
+
+
+def _parse_int_list(value):
+    """
+    Converte diferentes representações (string, lista, JSON) em uma lista de inteiros.
+    """
+    if value is None or value == '':
+        return []
+
+    if isinstance(value, list):
+        items = value
+    else:
+        if isinstance(value, str):
+            value = value.strip()
+            if value == '':
+                return []
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    items = parsed
+                else:
+                    items = [parsed]
+            except json.JSONDecodeError:
+                items = [item.strip() for item in value.split(',')]
+        else:
+            items = [value]
+
+    int_items = []
+    for item in items:
+        if item in (None, '', []):
+            continue
+        if isinstance(item, list):
+            raise ValueError("Lista aninhada não suportada")
+        int_items.append(int(item))
+    return int_items
 
 
 @extend_schema(
@@ -343,8 +411,50 @@ def listar_doacoes_independentes(request):
 @permission_classes([IsAuthenticated])
 def criar_doacao_independente(request):
     """Cria uma nova doação independente"""
-    data = request.data.copy()
+    if not _validate_multipart_boundary(request):
+        return Response(
+            {
+                'erro': 'Requisições multipart/form-data devem incluir o parâmetro boundary no header Content-Type.',
+                'exemplo': 'Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW'
+            },
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    data = _normalize_request_data(request.data)
+    if not isinstance(data, dict):
+        data = dict(data)
+
     data['doadora_id'] = request.user.id
+
+    # Converter campos que podem chegar como string
+    conversion_errors = {}
+
+    if 'tipo_servico' in data and isinstance(data['tipo_servico'], str):
+        try:
+            data['tipo_servico'] = int(data['tipo_servico'])
+        except ValueError:
+            conversion_errors['tipo_servico'] = ['Informe um ID numérico válido.']
+
+    if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
+        try:
+            data['localizacao'] = int(data['localizacao'])
+        except ValueError:
+            conversion_errors['localizacao'] = ['Informe um ID numérico válido.']
+
+    if 'categorias' in data:
+        try:
+            data['categorias'] = _parse_int_list(data['categorias'])
+        except (ValueError, TypeError):
+            conversion_errors['categorias'] = ['Informe uma lista de IDs numéricos (ex: "1,2,3").']
+
+    if 'dias_semana' in data:
+        try:
+            data['dias_semana'] = _parse_int_list(data['dias_semana'])
+        except (ValueError, TypeError):
+            conversion_errors['dias_semana'] = ['Informe uma lista de números inteiros (ex: "0,1,2" para Segunda, Terça, Quarta).']
+
+    if conversion_errors:
+        return Response(conversion_errors, status=status.HTTP_400_BAD_REQUEST)
     
     serializer = DoacaoIndependenteSerializer(data=data)
     if serializer.is_valid():
@@ -399,10 +509,52 @@ def atualizar_doacao_independente(request, doacao_id: int):
                 {'erro': 'Você só pode editar suas próprias doações independentes'}, 
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
+        if not _validate_multipart_boundary(request):
+            return Response(
+                {
+                    'erro': 'Requisições multipart/form-data devem incluir o parâmetro boundary no header Content-Type.',
+                    'exemplo': 'Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        data = _normalize_request_data(request.data)
+        if not isinstance(data, dict):
+            data = dict(data)
+
+        conversion_errors = {}
+
+        if 'tipo_servico' in data and isinstance(data['tipo_servico'], str) and data['tipo_servico'].strip():
+            try:
+                data['tipo_servico'] = int(data['tipo_servico'])
+            except ValueError:
+                conversion_errors['tipo_servico'] = ['Informe um ID numérico válido.']
+
+        if 'localizacao' in data and isinstance(data['localizacao'], str) and data['localizacao'].strip():
+            try:
+                data['localizacao'] = int(data['localizacao'])
+            except ValueError:
+                conversion_errors['localizacao'] = ['Informe um ID numérico válido.']
+
+        if 'categorias' in data:
+            try:
+                data['categorias'] = _parse_int_list(data['categorias'])
+            except (ValueError, TypeError):
+                conversion_errors['categorias'] = ['Informe uma lista de IDs numéricos (ex: "1,2,3").']
+
+        if 'dias_semana' in data:
+            try:
+                data['dias_semana'] = _parse_int_list(data['dias_semana'])
+            except (ValueError, TypeError):
+                conversion_errors['dias_semana'] = ['Informe uma lista de números inteiros (ex: "0,1,2" para Segunda, Terça, Quarta).']
+
+        if conversion_errors:
+            return Response(conversion_errors, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = DoacaoIndependenteSerializer(
-            doacao, 
-            data=request.data, 
+            doacao,
+            data=data,
             partial=request.method == 'PATCH'
         )
         
