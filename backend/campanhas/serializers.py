@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from .models import Organizadora, Campanha, ItemCampanha
 from backend.doacoes.models import Doacao
 from backend.pessoas.serializers import PessoaSerializer
@@ -18,12 +20,14 @@ class DoacaoSerializer(serializers.ModelSerializer):
             'data_doacao', 'data_entrega'
         ]
         read_only_fields = ['id', 'data_doacao', 'data_entrega']
+        ref_name = 'CampanhaDoacao'
 
 
 class ItemCampanhaSerializer(serializers.ModelSerializer):
     """Serializer para itens de campanha"""
     percentual_atingido = serializers.SerializerMethodField(read_only=True)
     
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_percentual_atingido(self, obj):
         return obj.percentual_atingido
     
@@ -111,21 +115,27 @@ class CampanhaSerializer(serializers.ModelSerializer):
     itens_campanha = ItemCampanhaSerializer(source='itens', many=True, read_only=True)
     doacoes = DoacaoSerializer(many=True, read_only=True)
     
+    @extend_schema_field(OpenApiTypes.FLOAT)
     def get_percentual_atingido(self, obj):
         return obj.percentual_atingido
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_status_campanha(self, obj):
         return obj.status_campanha
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_total_itens(self, obj):
         return obj.total_itens
     
+    @extend_schema_field(OpenApiTypes.INT)
     def get_itens_completos(self, obj):
         return obj.itens_completos
     
+    @extend_schema_field(serializers.IntegerField(allow_null=True))
     def get_dias_restantes(self, obj):
         return obj.dias_restantes
     
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_imagem_url(self, obj):
         if obj.imagem and obj.imagem.src:
             return obj.imagem.src.url

@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from .models import TipoServico, Doacao, DoacaoIndependente
 from backend.campanhas.models import Imagem
 from backend.pessoas.models import LocalizacaoInteresse, Pessoa
@@ -52,9 +54,11 @@ class DoacaoSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField(read_only=True)
     descricao_completa = serializers.SerializerMethodField(read_only=True)
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_status_display(self, obj):
         return obj.status_display
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_descricao_completa(self, obj):
         return obj.descricao_completa
 
@@ -70,6 +74,7 @@ class DoacaoSerializer(serializers.ModelSerializer):
             'status', 'status_display', 'observacoes'
         ]
         read_only_fields = ['id', 'campanha', 'doador', 'item_campanha', 'data_doacao']
+        ref_name = 'DoacaoDetalhada'
 
     def create(self, validated_data):
         doador_id = validated_data.pop('doador_id')
@@ -96,11 +101,13 @@ class DoacaoIndependenteSerializer(serializers.ModelSerializer):
     categorias_detalhes = TipoServicoSerializer(source='categorias', many=True, read_only=True)
     status_display = serializers.SerializerMethodField(read_only=True)
     
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_imagem_url(self, obj):
         if obj.imagem and obj.imagem.src:
             return obj.imagem.src.url
         return None
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_status_display(self, obj):
         return obj.status_display
 
@@ -236,9 +243,11 @@ class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField(read_only=True)
     categorias_detalhes = TipoServicoSerializer(source='categorias', many=True, read_only=True)
 
+    @extend_schema_field(OpenApiTypes.STR)
     def get_status_display(self, obj):
         return obj.status_display
 
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_imagem_url(self, obj):
         if obj.imagem and obj.imagem.src:
             return obj.imagem.src.url

@@ -126,6 +126,7 @@ def criar_doacao(request):
     summary='Listar Doações por Campanha',
     description='Lista todas as doações vinculadas a uma campanha com cache.',
     tags=['Doações'],
+    responses={200: DoacaoSerializer(many=True)}
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -561,6 +562,7 @@ def atualizar_doacao_independente(request, doacao_id: int):
     summary='Pausar Doação Independente',
     description='Pausa uma doação independente (apenas o criador).',
     tags=['Doações Independentes'],
+    request=None,
     responses={200: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
 )
 @api_view(['POST'])
@@ -591,6 +593,7 @@ def pausar_doacao_independente(request, doacao_id: int):
     summary='Reativar Doação Independente',
     description='Reativa uma doação independente pausada (apenas o criador).',
     tags=['Doações Independentes'],
+    request=None,
     responses={200: OpenApiTypes.OBJECT, 403: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
 )
 @api_view(['POST'])

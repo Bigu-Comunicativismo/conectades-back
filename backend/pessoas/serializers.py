@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema_field
 from .models import Pessoa, TipoUsuario, Genero, CategoriaInteresse, LocalizacaoInteresse
 
 
@@ -124,6 +126,7 @@ class PessoaSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'date_joined', 'nome_exibicao', 'categorias_interesse_display']
     
+    @extend_schema_field(OpenApiTypes.STR)
     def get_categorias_interesse_display(self, obj):
         """Retorna as categorias de interesse formatadas"""
         return obj.get_categorias_interesse_display()

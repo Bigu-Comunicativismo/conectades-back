@@ -759,8 +759,9 @@ def editar_campanha(request, campanha_id: int):
     summary='Desativar Campanha',
     description='Desativa uma campanha (campo ativa=False). Apenas a organizadora pode desativar.',
     tags=['Campanhas'],
+    request=None,
     responses={
-        200: OpenApiTypes.OBJECT,
+        200: CampanhaSerializer,
         403: OpenApiTypes.OBJECT,
         404: OpenApiTypes.OBJECT,
     }

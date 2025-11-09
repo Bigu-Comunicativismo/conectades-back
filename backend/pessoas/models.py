@@ -326,15 +326,15 @@ class Pessoa(AbstractUser):
         return f"{display_name} ({self.tipo_usuario.nome})"
     
     @property
-    def nome_exibicao(self):
+    def nome_exibicao(self) -> str:
         """Retorna o nome que deve ser exibido publicamente"""
-        return self.nome_social or self.nome_completo
+        return self.nome_social or self.nome_completo or self.username
     
-    def get_categorias_interesse_display(self):
+    def get_categorias_interesse_display(self) -> str:
         """Retorna as categorias de interesse formatadas"""
         if not self.categorias_interesse.exists():
             return "Nenhuma"
-        return [categoria.nome for categoria in self.categorias_interesse.all()]
+        return ", ".join(self.categorias_interesse.values_list('nome', flat=True))
     
     def get_localizacoes_interesse_display(self):
         """Retorna as localizações de interesse formatadas"""
