@@ -6,7 +6,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from drf_spectacular.types import OpenApiTypes
 from django.core.cache import cache
 from django.conf import settings
@@ -362,6 +362,50 @@ def criar_tipo_servico(request):
     summary='Listar Doações Independentes',
     description='Lista doações independentes com filtros opcionais.',
     tags=['Doações Independentes'],
+    parameters=[
+        OpenApiParameter(
+            name='busca',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='Texto para buscar em título, descrição ou nome da doadora.'
+        ),
+        OpenApiParameter(
+            name='categoria',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='ID numérico ou nome do tipo de serviço (alias `tipo_servico`).'
+        ),
+        OpenApiParameter(
+            name='tipo_servico',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='Mesmo comportamento que `categoria` para compatibilidade.'
+        ),
+        OpenApiParameter(
+            name='localizacao',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='Código da localização de interesse (ex: bairro/cidade).'
+        ),
+        OpenApiParameter(
+            name='status',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='Filtra pelo status (`ativa`, `pausada`, `finalizada`, `cancelada`, `todas`). Padrão: `ativa`.'
+        ),
+        OpenApiParameter(
+            name='ativa',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='Filtra por flag ativa (`true`/`false`).'
+        ),
+        OpenApiParameter(
+            name='ordenar',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description='Define ordenação: `recente`, `antiga`, `inicio`, `fim`. Padrão: `recente`.'
+        ),
+    ],
     responses={200: DoacaoIndependenteListSerializer(many=True)}
 )
 @api_view(['GET'])
