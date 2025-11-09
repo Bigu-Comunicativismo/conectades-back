@@ -4,6 +4,7 @@ from drf_spectacular.utils import extend_schema_field
 from .models import TipoServico, Doacao, DoacaoIndependente
 from backend.campanhas.models import Imagem
 from backend.pessoas.models import LocalizacaoInteresse, Pessoa
+from backend.pessoas.serializers import PessoaSerializer
 
 
 class AtualizarStatusDoacaoSerializer(serializers.Serializer):
@@ -242,6 +243,7 @@ class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
     imagem_url = serializers.SerializerMethodField(read_only=True)
     status_display = serializers.SerializerMethodField(read_only=True)
     categorias_detalhes = TipoServicoSerializer(source='categorias', many=True, read_only=True)
+    doadora = PessoaSerializer(read_only=True)
 
     @extend_schema_field(OpenApiTypes.STR)
     def get_status_display(self, obj):
@@ -258,7 +260,7 @@ class DoacaoIndependenteListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'titulo', 'subtitulo', 'descricao',
             'categorias', 'categorias_detalhes',
-            'doadora_nome', 'localizacao_nome',
+            'doadora', 'doadora_nome', 'localizacao_nome',
             'status_display', 'ativa',
             'data_inicio', 'data_fim',
             'imagem_url', 'whatsapp'
