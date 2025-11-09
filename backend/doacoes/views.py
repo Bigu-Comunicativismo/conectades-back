@@ -385,7 +385,7 @@ def criar_tipo_servico(request):
             name='localizacao',
             type=OpenApiTypes.STR,
             location=OpenApiParameter.QUERY,
-            description='Código da localização de interesse (ex: bairro/cidade).'
+            description='ID numérico ou código da localização de interesse (ex: bairro/cidade).'
         ),
         OpenApiParameter(
             name='status',
@@ -447,7 +447,15 @@ def listar_doacoes_independentes(request):
             queryset = queryset.filter(categorias__nome__iexact=categoria_param)
     
     if localizacao:
-        queryset = queryset.filter(localizacao__codigo=localizacao)
+        valor_localizacao = str(localizacao).strip()
+        if valor_localizacao:
+            try:
+                queryset = queryset.filter(localizacao_id=int(valor_localizacao))
+            except (TypeError, ValueError):
+                queryset = queryset.filter(
+                    Q(localizacao__codigo__iexact=valor_localizacao) |
+                    Q(localizacao__nome__iexact=valor_localizacao)
+                )
     
     if status_filter:
         # Se status=todas já tratado acima
