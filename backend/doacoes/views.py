@@ -617,3 +617,41 @@ def reativar_doacao_independente(request, doacao_id: int):
             {'erro': 'Doação independente não encontrada'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@extend_schema(
+    operation_id='minhas_doacoes_independentes',
+    summary='Minhas Doações Independentes',
+    description='Lista as doações independentes criadas pela doadora autenticada com filtros opcionais.',
+    tags=['Doações Independentes'],
+    responses={200: DoacaoIndependenteSerializer(many=True)}
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def minhas_doacoes_independentes(request):
+    """Lista e permite filtrar doações independentes da doadora autenticada"""
+    queryset = DoacaoIndependente.objects.filter(
+        doadora=request.user
+    ).select_related(
+        'localizacao'
+    ).prefetch_related('categorias').order_by('-data_criacao')
+
+    status_filter = request.GET.get('status')
+    ativa_filter = request.GET.get('ativa')
+    busca = request.GET.get('busca')
+
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+
+    if ativa_filter is not None:
+        ativa_normalizada = ativa_filter.lower()
+        if ativa_normalizada in ('true', '1'):
+            queryset = queryset.filter(ativa=True)
+        elif ativa_normalizada in ('false', '0'):
+            queryset = queryset.filter(ativa=False)
+
+    if busca:
+        queryset = queryset.filter(Q(titulo__icontains=busca) | Q(descricao__icontains=busca))
+
+    serializer = DoacaoIndependenteSerializer(queryset, many=True)
+    return Response(serializer.data)

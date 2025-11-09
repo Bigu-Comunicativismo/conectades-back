@@ -17,6 +17,7 @@ urlpatterns = [
     # Doações Independentes
     path('independentes/', views.listar_doacoes_independentes, name='listar_doacoes_independentes'),
     path('independentes/criar/', views.criar_doacao_independente, name='criar_doacao_independente'),
+    path('independentes/minhas/', views.minhas_doacoes_independentes, name='minhas_doacoes_independentes'),
     path('independentes/<int:doacao_id>/', views.detalhar_doacao_independente, name='detalhar_doacao_independente'),
     path('independentes/<int:doacao_id>/atualizar/', views.atualizar_doacao_independente, name='atualizar_doacao_independente'),
     path('independentes/<int:doacao_id>/pausar/', views.pausar_doacao_independente, name='pausar_doacao_independente'),
