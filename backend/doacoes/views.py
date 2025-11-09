@@ -368,27 +368,47 @@ def criar_tipo_servico(request):
 @permission_classes([AllowAny])
 def listar_doacoes_independentes(request):
     """Lista doações independentes com filtros"""
-    queryset = DoacaoIndependente.objects.filter(ativa=True).select_related(
+    busca = request.query_params.get('busca')
+    categoria_param = request.query_params.get('categoria') or request.query_params.get('tipo_servico')
+    localizacao = request.query_params.get('localizacao')
+    status_filter = request.query_params.get('status', 'ativa')
+    ordenar = request.query_params.get('ordenar', 'recente')
+    ativa_param = request.query_params.get('ativa')
+
+    queryset = DoacaoIndependente.objects.select_related(
         'doadora', 'localizacao'
     ).prefetch_related('categorias')
     
-    # Filtros
-    tipo_servico_param = request.GET.get('tipo_servico')
-    localizacao = request.GET.get('localizacao')
-    status_filter = request.GET.get('status')
-    busca = request.GET.get('busca')
+    # Filtro por status (padrão: apenas ativas)
+    if status_filter == 'ativa':
+        queryset = queryset.filter(status='ativa', ativa=True)
+    elif status_filter == 'todas':
+        pass
+    else:
+        queryset = queryset.filter(status=status_filter)
     
-    if tipo_servico_param:
+    # Filtro por flag ativa (se fornecido explicitamente)
+    if ativa_param is not None:
+        ativa_normalizada = ativa_param.lower()
+        if ativa_normalizada in ('true', '1'):
+            queryset = queryset.filter(ativa=True)
+        elif ativa_normalizada in ('false', '0'):
+            queryset = queryset.filter(ativa=False)
+
+    # Filtro por categoria / tipo de serviço
+    if categoria_param:
         try:
-            queryset = queryset.filter(categorias__id=int(tipo_servico_param))
-        except ValueError:
-            queryset = queryset.filter(categorias__nome__iexact=tipo_servico_param)
+            queryset = queryset.filter(categorias__id=int(categoria_param))
+        except (TypeError, ValueError):
+            queryset = queryset.filter(categorias__nome__iexact=categoria_param)
     
     if localizacao:
         queryset = queryset.filter(localizacao__codigo=localizacao)
     
     if status_filter:
-        queryset = queryset.filter(status=status_filter)
+        # Se status=todas já tratado acima
+        if status_filter not in ('todas', 'ativa'):
+            queryset = queryset.filter(status=status_filter)
     
     if busca:
         queryset = queryset.filter(
@@ -397,7 +417,17 @@ def listar_doacoes_independentes(request):
             Q(doadora__nome_completo__icontains=busca)
         )
     
-    queryset = queryset.order_by('-data_criacao')
+    # Ordenação
+    if ordenar == 'recente':
+        queryset = queryset.order_by('-data_criacao')
+    elif ordenar == 'antiga':
+        queryset = queryset.order_by('data_criacao')
+    elif ordenar == 'inicio':
+        queryset = queryset.order_by('data_inicio')
+    elif ordenar == 'fim':
+        queryset = queryset.order_by('data_fim')
+    else:
+        queryset = queryset.order_by('-data_criacao')
     
     serializer = DoacaoIndependenteListSerializer(queryset, many=True)
     return Response(serializer.data)
