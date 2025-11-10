@@ -303,7 +303,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Media files (uploads)
@@ -379,6 +379,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://127.0.0.1:8001',
     'http://srv1037558.hstgr.cloud:8001',  # Servidor de desenvolvimento
+    'https://conectades.com.br',
+    'https://www.conectades.com.br',
     # Adicione aqui suas URLs de produção quando houver
 ]
 
@@ -398,6 +400,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://127.0.0.1:8001',
     'http://srv1037558.hstgr.cloud:8001',
+    'https://conectades.com.br',
+    'https://www.conectades.com.br',
     # Adicione aqui suas URLs de produção quando houver (use https://)
 ]
 
