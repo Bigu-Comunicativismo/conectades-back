@@ -546,7 +546,7 @@ def criar_doacao_independente(request):
     summary='Detalhar Doação Independente',
     description='Retorna detalhes de uma doação independente específica.',
     tags=['Doações Independentes'],
-    responses={200: DoacaoIndependenteSerializer, 404: OpenApiTypes.OBJECT}
+    responses={200: DoacaoIndependenteListSerializer, 404: OpenApiTypes.OBJECT}
 )
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -557,7 +557,7 @@ def detalhar_doacao_independente(request, doacao_id: int):
             'doadora', 'localizacao'
         ).prefetch_related('categorias').get(id=doacao_id, ativa=True)
         
-        serializer = DoacaoIndependenteSerializer(doacao)
+        serializer = DoacaoIndependenteListSerializer(doacao)
         return Response(serializer.data)
     except DoacaoIndependente.DoesNotExist:
         return Response(
