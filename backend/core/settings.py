@@ -379,6 +379,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://127.0.0.1:8001',
     'http://srv1037558.hstgr.cloud:8001',  # Servidor de desenvolvimento
+    'https://srv1037558.hstgr.cloud',
+    'https://srv1037558.hstgr.cloud:8001',
     'https://conectades.com.br',
     'https://www.conectades.com.br',
     # Adicione aqui suas URLs de produção quando houver
@@ -400,6 +402,8 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:5173',
     'http://127.0.0.1:8001',
     'http://srv1037558.hstgr.cloud:8001',
+    'https://srv1037558.hstgr.cloud',
+    'https://srv1037558.hstgr.cloud:8001',
     'https://conectades.com.br',
     'https://www.conectades.com.br',
     # Adicione aqui suas URLs de produção quando houver (use https://)
