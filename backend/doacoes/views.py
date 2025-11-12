@@ -373,7 +373,7 @@ def criar_tipo_servico(request):
             name='categoria',
             type=OpenApiTypes.STR,
             location=OpenApiParameter.QUERY,
-            description='ID numérico ou nome do tipo de serviço (alias `tipo_servico`).'
+            description='ID(s) numéricos ou nomes dos tipos de serviço (alias `tipo_servico`). Aceita múltiplos valores separados por vírgula.'
         ),
         OpenApiParameter(
             name='tipo_servico',
@@ -385,7 +385,7 @@ def criar_tipo_servico(request):
             name='localizacao',
             type=OpenApiTypes.STR,
             location=OpenApiParameter.QUERY,
-            description='ID numérico ou código da localização de interesse (ex: bairro/cidade).'
+            description='ID(s) numéricos ou código(s) da localização de interesse (ex: bairro/cidade). Aceita múltiplos valores separados por vírgula.'
         ),
         OpenApiParameter(
             name='status',
