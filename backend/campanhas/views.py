@@ -398,7 +398,7 @@ def minhas_campanhas(request):
                 'organizadora__pessoa',
                 'beneficiaria'
             ).prefetch_related(
-                'doacoes', 'itens', 'doacoes__doadora', 'doacoes__item'
+                'doacoes', 'itens', 'doacoes__doador', 'doacoes__item_campanha'
             ).filter(organizadora=organizadora)
             
             serializer = CampanhaSerializer(campanhas, many=True)

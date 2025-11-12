@@ -706,17 +706,19 @@ def reativar_doacao_independente(request, doacao_id: int):
     summary='Minhas Doações Independentes',
     description='Lista as doações independentes criadas pela doadora autenticada com filtros opcionais.',
     tags=['Doações Independentes'],
-    responses={200: DoacaoIndependenteSerializer(many=True)}
+    responses={200: DoacaoIndependenteListSerializer(many=True)}
 )
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def minhas_doacoes_independentes(request):
     """Lista e permite filtrar doações independentes da doadora autenticada"""
-    queryset = DoacaoIndependente.objects.filter(
-        doadora=request.user
-    ).select_related(
-        'localizacao'
-    ).prefetch_related('categorias').order_by('-data_criacao')
+    queryset = (
+        DoacaoIndependente.objects
+        .select_related('doadora', 'localizacao')
+        .prefetch_related('categorias')
+        .filter(doadora=request.user)
+        .order_by('-data_criacao')
+    )
 
     status_filter = request.GET.get('status')
     ativa_filter = request.GET.get('ativa')
@@ -735,5 +737,5 @@ def minhas_doacoes_independentes(request):
     if busca:
         queryset = queryset.filter(Q(titulo__icontains=busca) | Q(descricao__icontains=busca))
 
-    serializer = DoacaoIndependenteSerializer(queryset, many=True)
+    serializer = DoacaoIndependenteListSerializer(queryset, many=True)
     return Response(serializer.data)
