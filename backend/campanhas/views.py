@@ -339,10 +339,16 @@ def listar_campanhas(request):
         valor = str(value).strip()
         if not valor:
             continue
-        try:
-            localizacao_ids.append(int(valor))
-        except (ValueError, TypeError):
-            localizacao_terms.append(valor)
+
+        partes = [p.strip() for p in valor.split(',')] if ',' in valor else [valor]
+
+        for parte in partes:
+            if not parte:
+                continue
+            try:
+                localizacao_ids.append(int(parte))
+            except (ValueError, TypeError):
+                localizacao_terms.append(parte)
 
     status_filtro = request.query_params.get('status', 'ativa')  # Padrão: apenas ativas
     ordenar = request.query_params.get('ordenar', 'recente')  # Padrão: mais recentes

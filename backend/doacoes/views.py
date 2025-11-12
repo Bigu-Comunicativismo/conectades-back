@@ -485,10 +485,16 @@ def listar_doacoes_independentes(request):
             valor = str(value).strip()
             if not valor:
                 continue
-            try:
-                localizacao_ids.append(int(valor))
-            except (ValueError, TypeError):
-                localizacao_termos.append(valor)
+
+            partes = [p.strip() for p in valor.split(',')] if ',' in valor else [valor]
+
+            for parte in partes:
+                if not parte:
+                    continue
+                try:
+                    localizacao_ids.append(int(parte))
+                except (ValueError, TypeError):
+                    localizacao_termos.append(parte)
 
         if localizacao_ids:
             queryset = queryset.filter(localizacao_id__in=localizacao_ids)
