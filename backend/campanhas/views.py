@@ -315,13 +315,42 @@ def listar_campanhas(request):
     
     # Obter query params
     busca = request.query_params.get('busca', None)
-    categoria_id = request.query_params.get('categoria', None)
-    localizacao_id = request.query_params.get('localizacao', None)
+
+    raw_categoria_params = request.query_params.getlist('categoria')
+    if not raw_categoria_params:
+        categoria_single = request.query_params.get('categoria')
+        if categoria_single:
+            raw_categoria_params = [categoria_single]
+
+    raw_localizacao_params = request.query_params.getlist('localizacao')
+    if not raw_localizacao_params:
+        localizacao_single = request.query_params.get('localizacao')
+        if localizacao_single:
+            raw_localizacao_params = [localizacao_single]
+
+    try:
+        categoria_ids = _parse_int_list(raw_categoria_params if len(raw_categoria_params) > 1 else (raw_categoria_params[0] if raw_categoria_params else None))
+    except (ValueError, TypeError):
+        categoria_ids = []
+
+    localizacao_ids = []
+    localizacao_terms = []
+    for value in raw_localizacao_params:
+        valor = str(value).strip()
+        if not valor:
+            continue
+        try:
+            localizacao_ids.append(int(valor))
+        except (ValueError, TypeError):
+            localizacao_terms.append(valor)
+
     status_filtro = request.query_params.get('status', 'ativa')  # Padrão: apenas ativas
     ordenar = request.query_params.get('ordenar', 'recente')  # Padrão: mais recentes
     
     # Montar cache key baseado nos filtros
-    cache_key = f'campanhas_{busca}_{categoria_id}_{localizacao_id}_{status_filtro}_{ordenar}'
+    categoria_cache_key = ','.join(sorted(map(str, raw_categoria_params))) if raw_categoria_params else 'None'
+    localizacao_cache_key = ','.join(sorted(map(str, raw_localizacao_params))) if raw_localizacao_params else 'None'
+    cache_key = f'campanhas_{busca}_{categoria_cache_key}_{localizacao_cache_key}_{status_filtro}_{ordenar}'
     cached_data = cache.get(cache_key)
     
     if cached_data is None:
@@ -341,12 +370,18 @@ def listar_campanhas(request):
         # Se 'todas', não filtra por ativa
         
         # Filtro por categoria
-        if categoria_id:
-            campanhas = campanhas.filter(categorias__id=categoria_id)
+        if categoria_ids:
+            campanhas = campanhas.filter(categorias__id__in=categoria_ids).distinct()
         
         # Filtro por localização
-        if localizacao_id:
-            campanhas = campanhas.filter(localizacao_id=localizacao_id)
+        if localizacao_ids:
+            campanhas = campanhas.filter(localizacao_id__in=localizacao_ids)
+
+        if localizacao_terms:
+            localizacao_q = Q()
+            for termo in localizacao_terms:
+                localizacao_q |= Q(localizacao__codigo__iexact=termo) | Q(localizacao__nome__iexact=termo)
+            campanhas = campanhas.filter(localizacao_q)
         
         # Busca por título ou descrição
         if busca:
@@ -398,7 +433,7 @@ def minhas_campanhas(request):
                 'organizadora__pessoa',
                 'beneficiaria'
             ).prefetch_related(
-                'doacoes', 'itens', 'doacoes__doador', 'doacoes__item_campanha'
+               'doacoes', 'itens', 'doacoes__doador', 'doacoes__item_campanha'
             ).filter(organizadora=organizadora)
             
             serializer = CampanhaSerializer(campanhas, many=True)

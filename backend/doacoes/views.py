@@ -413,8 +413,22 @@ def criar_tipo_servico(request):
 def listar_doacoes_independentes(request):
     """Lista doações independentes com filtros"""
     busca = request.query_params.get('busca')
-    categoria_param = request.query_params.get('categoria') or request.query_params.get('tipo_servico')
-    localizacao = request.query_params.get('localizacao')
+    raw_categoria_params = request.query_params.getlist('categoria')
+    raw_tipo_servico_params = request.query_params.getlist('tipo_servico')
+    raw_categoria_params += raw_tipo_servico_params
+
+    if not raw_categoria_params:
+        categoria_single = request.query_params.get('categoria')
+        tipo_single = request.query_params.get('tipo_servico')
+        for single in (categoria_single, tipo_single):
+            if single:
+                raw_categoria_params.append(single)
+
+    raw_localizacao_params = request.query_params.getlist('localizacao')
+    if not raw_localizacao_params:
+        localizacao_single = request.query_params.get('localizacao')
+        if localizacao_single:
+            raw_localizacao_params = [localizacao_single]
     status_filter = request.query_params.get('status', 'ativa')
     ordenar = request.query_params.get('ordenar', 'recente')
     ativa_param = request.query_params.get('ativa')
@@ -440,22 +454,50 @@ def listar_doacoes_independentes(request):
             queryset = queryset.filter(ativa=False)
 
     # Filtro por categoria / tipo de serviço
-    if categoria_param:
-        try:
-            queryset = queryset.filter(categorias__id=int(categoria_param))
-        except (TypeError, ValueError):
-            queryset = queryset.filter(categorias__nome__iexact=categoria_param)
-    
-    if localizacao:
-        valor_localizacao = str(localizacao).strip()
-        if valor_localizacao:
+    if raw_categoria_params:
+        categoria_ids = []
+        categoria_nomes = []
+        for value in raw_categoria_params:
+            valor = str(value).strip()
+            if not valor:
+                continue
             try:
-                queryset = queryset.filter(localizacao_id=int(valor_localizacao))
-            except (TypeError, ValueError):
-                queryset = queryset.filter(
-                    Q(localizacao__codigo__iexact=valor_localizacao) |
-                    Q(localizacao__nome__iexact=valor_localizacao)
-                )
+                categoria_ids.append(int(valor))
+            except (ValueError, TypeError):
+                categoria_nomes.append(valor)
+
+        if categoria_ids:
+            queryset = queryset.filter(categorias__id__in=categoria_ids)
+
+        if categoria_nomes:
+            categoria_q = Q()
+            for nome in categoria_nomes:
+                categoria_q |= Q(categorias__nome__iexact=nome)
+            queryset = queryset.filter(categoria_q)
+
+        if categoria_ids or categoria_nomes:
+            queryset = queryset.distinct()
+    
+    if raw_localizacao_params:
+        localizacao_ids = []
+        localizacao_termos = []
+        for value in raw_localizacao_params:
+            valor = str(value).strip()
+            if not valor:
+                continue
+            try:
+                localizacao_ids.append(int(valor))
+            except (ValueError, TypeError):
+                localizacao_termos.append(valor)
+
+        if localizacao_ids:
+            queryset = queryset.filter(localizacao_id__in=localizacao_ids)
+
+        if localizacao_termos:
+            localizacao_q = Q()
+            for termo in localizacao_termos:
+                localizacao_q |= Q(localizacao__codigo__iexact=termo) | Q(localizacao__nome__iexact=termo)
+            queryset = queryset.filter(localizacao_q)
     
     if status_filter:
         # Se status=todas já tratado acima
