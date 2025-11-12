@@ -1,4 +1,5 @@
 import json
+from urllib.parse import unquote_plus
 
 from django.http import QueryDict
 from rest_framework import status
@@ -346,7 +347,7 @@ def listar_campanhas(request):
     localizacao_ids = []
     localizacao_terms = []
     for value in raw_localizacao_params:
-        valor = str(value).strip()
+        valor = unquote_plus(str(value)).strip()
         if not valor:
             continue
 

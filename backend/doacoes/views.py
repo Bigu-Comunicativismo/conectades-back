@@ -1,5 +1,6 @@
 import json
 import logging
+from urllib.parse import unquote_plus
 
 from django.http import QueryDict
 from rest_framework import status
@@ -458,7 +459,7 @@ def listar_doacoes_independentes(request):
         categoria_ids = []
         categoria_nomes = []
         for value in raw_categoria_params:
-            valor = str(value).strip()
+            valor = unquote_plus(str(value)).strip()
             if not valor:
                 continue
             try:
@@ -482,7 +483,7 @@ def listar_doacoes_independentes(request):
         localizacao_ids = []
         localizacao_termos = []
         for value in raw_localizacao_params:
-            valor = str(value).strip()
+            valor = unquote_plus(str(value)).strip()
             if not valor:
                 continue
 
