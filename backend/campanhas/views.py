@@ -299,8 +299,18 @@ def criar_campanha(request):
     tags=['Campanhas'],
     parameters=[
         OpenApiParameter(name='busca', type=str, description='Busca por título ou descrição', required=False),
-        OpenApiParameter(name='categoria', type=int, description='Filtrar por ID da categoria', required=False),
-        OpenApiParameter(name='localizacao', type=int, description='Filtrar por ID da localização', required=False),
+        OpenApiParameter(
+            name='categoria',
+            type=OpenApiTypes.STR,
+            description='Filtrar por ID(s) da categoria. Aceita valores únicos ou múltiplos separados por vírgula.',
+            required=False
+        ),
+        OpenApiParameter(
+            name='localizacao',
+            type=OpenApiTypes.STR,
+            description='Filtrar por ID(s) ou código(s) da localização. Aceita valores únicos ou múltiplos separados por vírgula.',
+            required=False
+        ),
         OpenApiParameter(name='status', type=str, description='Filtrar por status: ativa, encerrada, todas', required=False, enum=['ativa', 'encerrada', 'todas']),
         OpenApiParameter(name='ordenar', type=str, description='Ordenar por: recente, antiga, prazo, progresso', required=False, enum=['recente', 'antiga', 'prazo', 'progresso']),
     ],
