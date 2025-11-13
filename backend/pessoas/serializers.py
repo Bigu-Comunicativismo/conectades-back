@@ -131,6 +131,53 @@ class PessoaSerializer(serializers.ModelSerializer):
         """Retorna as categorias de interesse formatadas"""
         return obj.get_categorias_interesse_display()
     
+    def _resolve_localizacao(self, value, preferir_cidade=False):
+        """
+        Converte IDs de LocalizacaoInteresse armazenados como texto para os respectivos nomes.
+        Mantém o valor original caso não seja um ID válido ou não exista cadastro correspondente.
+        """
+        if value in (None, ''):
+            return value
+        
+        # Aceita valores já textuais (ex: "Recife")
+        try:
+            localizacao_id = int(value)
+        except (ValueError, TypeError):
+            return value
+        
+        if not hasattr(self, '_localizacao_cache'):
+            self._localizacao_cache = {}
+        
+        if localizacao_id not in self._localizacao_cache:
+            try:
+                localizacao = LocalizacaoInteresse.objects.only('id', 'nome', 'cidade', 'tipo').get(id=localizacao_id)
+            except LocalizacaoInteresse.DoesNotExist:
+                self._localizacao_cache[localizacao_id] = None
+            else:
+                self._localizacao_cache[localizacao_id] = localizacao
+        
+        localizacao = self._localizacao_cache.get(localizacao_id)
+        if not localizacao:
+            return value
+        
+        if preferir_cidade:
+            if localizacao.tipo == 'cidade':
+                return localizacao.nome
+            if localizacao.cidade:
+                return localizacao.cidade
+        
+        return localizacao.nome or localizacao.cidade or value
+    
+    def to_representation(self, instance):
+        """
+        Garante que os campos cidade/bairro retornem nomes legíveis,
+        mesmo quando armazenados internamente como IDs de LocalizacaoInteresse.
+        """
+        data = super().to_representation(instance)
+        data['cidade'] = self._resolve_localizacao(data.get('cidade'), preferir_cidade=True)
+        data['bairro'] = self._resolve_localizacao(data.get('bairro'), preferir_cidade=False)
+        return data
+    
     def validate_cpf(self, value):
         """Validação básica do CPF"""
         if value:
