@@ -339,10 +339,22 @@ def listar_campanhas(request):
         if localizacao_single:
             raw_localizacao_params = [localizacao_single]
 
-    try:
-        categoria_ids = _parse_int_list(raw_categoria_params if len(raw_categoria_params) > 1 else (raw_categoria_params[0] if raw_categoria_params else None))
-    except (ValueError, TypeError):
-        categoria_ids = []
+    categoria_ids = []
+    categoria_terms = []
+    for value in raw_categoria_params:
+        valor = unquote_plus(str(value)).strip()
+        if not valor:
+            continue
+        
+        partes = [p.strip() for p in valor.split(',')] if ',' in valor else [valor]
+        
+        for parte in partes:
+            if not parte:
+                continue
+            try:
+                categoria_ids.append(int(parte))
+            except (ValueError, TypeError):
+                categoria_terms.append(parte)
 
     localizacao_ids = []
     localizacao_terms = []
@@ -388,7 +400,16 @@ def listar_campanhas(request):
         
         # Filtro por categoria
         if categoria_ids:
-            campanhas = campanhas.filter(categorias__id__in=categoria_ids).distinct()
+            campanhas = campanhas.filter(categorias__id__in=categoria_ids)
+        
+        if categoria_terms:
+            categoria_q = Q()
+            for termo in categoria_terms:
+                categoria_q |= Q(categorias__codigo__iexact=termo) | Q(categorias__nome__iexact=termo)
+            campanhas = campanhas.filter(categoria_q)
+        
+        if categoria_ids or categoria_terms:
+            campanhas = campanhas.distinct()
         
         # Filtro por localização
         if localizacao_ids:

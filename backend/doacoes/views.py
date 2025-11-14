@@ -457,26 +457,32 @@ def listar_doacoes_independentes(request):
     # Filtro por categoria / tipo de serviço
     if raw_categoria_params:
         categoria_ids = []
-        categoria_nomes = []
+        categoria_terms = []
         for value in raw_categoria_params:
             valor = unquote_plus(str(value)).strip()
             if not valor:
                 continue
-            try:
-                categoria_ids.append(int(valor))
-            except (ValueError, TypeError):
-                categoria_nomes.append(valor)
+
+            partes = [p.strip() for p in valor.split(',')] if ',' in valor else [valor]
+
+            for parte in partes:
+                if not parte:
+                    continue
+                try:
+                    categoria_ids.append(int(parte))
+                except (ValueError, TypeError):
+                    categoria_terms.append(parte)
 
         if categoria_ids:
             queryset = queryset.filter(categorias__id__in=categoria_ids)
 
-        if categoria_nomes:
+        if categoria_terms:
             categoria_q = Q()
-            for nome in categoria_nomes:
-                categoria_q |= Q(categorias__nome__iexact=nome)
+            for termo in categoria_terms:
+                categoria_q |= Q(categorias__codigo__iexact=termo) | Q(categorias__nome__iexact=termo)
             queryset = queryset.filter(categoria_q)
 
-        if categoria_ids or categoria_nomes:
+        if categoria_ids or categoria_terms:
             queryset = queryset.distinct()
     
     if raw_localizacao_params:
