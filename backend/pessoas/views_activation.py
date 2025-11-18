@@ -374,7 +374,7 @@ def ativar_conta_via_link(request, token):
                     <p>Sua conta foi ativada e você já pode fazer login!</p>
                     <p>Use o email e senha cadastrados para acessar a plataforma.</p>
                     
-                    <a href="/api/docs/">Fazer Login na API</a>
+                    <a href="https://www.conectades.com.br/login">Fazer Login</a>
                 </div>
             </body>
             </html>
