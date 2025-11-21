@@ -113,7 +113,7 @@ class CampanhaSerializer(serializers.ModelSerializer):
     dias_restantes = serializers.SerializerMethodField(read_only=True)
     itens = ItemCampanhaSerializer(many=True, read_only=True)
     itens_campanha = ItemCampanhaSerializer(source='itens', many=True, read_only=True)
-    doacoes = DoacaoSerializer(many=True, read_only=True)
+    doacoes = serializers.SerializerMethodField(read_only=True)
     
     @extend_schema_field(OpenApiTypes.FLOAT)
     def get_percentual_atingido(self, obj):
@@ -141,6 +141,12 @@ class CampanhaSerializer(serializers.ModelSerializer):
             return obj.imagem.src.url
         return None
     
+    @extend_schema_field(DoacaoSerializer(many=True))
+    def get_doacoes(self, obj):
+        """Retorna apenas doações confirmadas pela beneficiária"""
+        doacoes_confirmadas = obj.doacoes.filter(status__in=['confirmada', 'entregue'])
+        return DoacaoSerializer(doacoes_confirmadas, many=True).data
+    
     class Meta:
         model = Campanha
         fields = [
@@ -158,6 +164,9 @@ class CampanhaSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         from .models import Imagem
+        import os
+        from django.core.files import File
+        from django.conf import settings
         
         organizadora_id = validated_data.pop('organizadora_id')
         beneficiaria_id = validated_data.pop('beneficiaria_id', None)
@@ -180,13 +189,29 @@ class CampanhaSerializer(serializers.ModelSerializer):
             beneficiaria = Pessoa.objects.get(id=beneficiaria_id)
             validated_data['beneficiaria'] = beneficiaria
         
-        # Criar objeto Imagem se arquivo foi fornecido
+        # Criar objeto Imagem se arquivo foi fornecido, senão usar imagem padrão
         if imagem_arquivo:
             imagem = Imagem.objects.create(
                 src=imagem_arquivo,
                 alt=imagem_alt
             )
             validated_data['imagem'] = imagem
+        else:
+            # Aplicar imagem padrão (PNG)
+            default_image_path = settings.BASE_DIR / 'static' / 'campanha_default.png'
+            
+            if default_image_path.exists():
+                with open(str(default_image_path), 'rb') as f:
+                    default_file = File(f, name='campanha_default.png')
+                    imagem = Imagem.objects.create(
+                        src=default_file,
+                        alt='Imagem padrão da campanha'
+                    )
+                    validated_data['imagem'] = imagem
+            else:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning("Imagem padrão não encontrada em static/campanha_default.png")
         
         # Criar a campanha
         campanha = Campanha.objects.create(**validated_data)

@@ -473,17 +473,35 @@ def listar_doacoes_independentes(request):
                 except (ValueError, TypeError):
                     categoria_terms.append(parte)
 
+        # Validar se as categorias existem antes de aplicar o filtro
+        categorias_validas = []
+        retornar_vazio = False
+        
         if categoria_ids:
-            queryset = queryset.filter(categorias__id__in=categoria_ids)
+            categorias_existentes = list(TipoServico.objects.filter(id__in=categoria_ids).values_list('id', flat=True))
+            if not categorias_existentes:
+                # Se nenhuma categoria existe, marcar para retornar vazio
+                retornar_vazio = True
+            else:
+                categorias_validas.extend(categorias_existentes)
 
-        if categoria_terms:
-            categoria_q = Q()
-            for termo in categoria_terms:
-                categoria_q |= Q(categorias__codigo__iexact=termo) | Q(categorias__nome__iexact=termo)
-            queryset = queryset.filter(categoria_q)
+        if categoria_terms and not retornar_vazio:
+            categorias_encontradas = list(TipoServico.objects.filter(
+                Q(codigo__in=[t.lower() for t in categoria_terms]) | 
+                Q(nome__in=categoria_terms)
+            ).values_list('id', flat=True))
+            
+            if not categorias_encontradas:
+                # Se nenhuma categoria foi encontrada, marcar para retornar vazio
+                retornar_vazio = True
+            else:
+                categorias_validas.extend(categorias_encontradas)
 
-        if categoria_ids or categoria_terms:
-            queryset = queryset.distinct()
+        # Aplicar filtro ou retornar vazio
+        if retornar_vazio:
+            queryset = queryset.none()
+        elif categorias_validas:
+            queryset = queryset.filter(categorias__id__in=categorias_validas).distinct()
     
     if raw_localizacao_params:
         localizacao_ids = []

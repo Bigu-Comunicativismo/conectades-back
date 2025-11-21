@@ -399,17 +399,39 @@ def listar_campanhas(request):
         # Se 'todas', não filtra por ativa
         
         # Filtro por categoria
-        if categoria_ids:
-            campanhas = campanhas.filter(categorias__id__in=categoria_ids)
-        
-        if categoria_terms:
-            categoria_q = Q()
-            for termo in categoria_terms:
-                categoria_q |= Q(categorias__codigo__iexact=termo) | Q(categorias__nome__iexact=termo)
-            campanhas = campanhas.filter(categoria_q)
-        
         if categoria_ids or categoria_terms:
-            campanhas = campanhas.distinct()
+            from backend.pessoas.models import CategoriaInteresse
+            
+            categorias_validas = []
+            retornar_vazio = False
+            
+            # Validar se as categorias existem por ID
+            if categoria_ids:
+                categorias_existentes = list(CategoriaInteresse.objects.filter(id__in=categoria_ids).values_list('id', flat=True))
+                if not categorias_existentes:
+                    # Se nenhuma categoria existe, marcar para retornar vazio
+                    retornar_vazio = True
+                else:
+                    categorias_validas.extend(categorias_existentes)
+            
+            # Validar se as categorias existem por nome/código
+            if categoria_terms and not retornar_vazio:
+                categorias_encontradas = list(CategoriaInteresse.objects.filter(
+                    Q(codigo__in=[t.lower() for t in categoria_terms]) | 
+                    Q(nome__in=categoria_terms)
+                ).values_list('id', flat=True))
+                
+                if not categorias_encontradas:
+                    # Se nenhuma categoria foi encontrada, marcar para retornar vazio
+                    retornar_vazio = True
+                else:
+                    categorias_validas.extend(categorias_encontradas)
+            
+            # Aplicar filtro ou retornar vazio
+            if retornar_vazio:
+                campanhas = campanhas.none()
+            elif categorias_validas:
+                campanhas = campanhas.filter(categorias__id__in=categorias_validas).distinct()
         
         # Filtro por localização
         if localizacao_ids:
