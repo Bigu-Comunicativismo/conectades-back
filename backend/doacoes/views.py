@@ -501,7 +501,13 @@ def listar_doacoes_independentes(request):
         if retornar_vazio:
             queryset = queryset.none()
         elif categorias_validas:
-            queryset = queryset.filter(categorias__id__in=categorias_validas).distinct()
+            # Aplicar filtro e verificar se há resultados
+            queryset_filtrado = queryset.filter(categorias__id__in=categorias_validas).distinct()
+            # Se não houver doações com essas categorias, retornar vazio
+            if not queryset_filtrado.exists():
+                queryset = queryset.none()
+            else:
+                queryset = queryset_filtrado
     
     if raw_localizacao_params:
         localizacao_ids = []

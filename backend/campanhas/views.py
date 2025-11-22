@@ -431,7 +431,13 @@ def listar_campanhas(request):
             if retornar_vazio:
                 campanhas = campanhas.none()
             elif categorias_validas:
-                campanhas = campanhas.filter(categorias__id__in=categorias_validas).distinct()
+                # Aplicar filtro e verificar se há resultados
+                campanhas_filtradas = campanhas.filter(categorias__id__in=categorias_validas).distinct()
+                # Se não houver campanhas com essas categorias, retornar vazio
+                if not campanhas_filtradas.exists():
+                    campanhas = campanhas.none()
+                else:
+                    campanhas = campanhas_filtradas
         
         # Filtro por localização
         if localizacao_ids:
