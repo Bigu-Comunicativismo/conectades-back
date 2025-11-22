@@ -414,12 +414,15 @@ def criar_tipo_servico(request):
 def listar_doacoes_independentes(request):
     """Lista doações independentes com filtros"""
     busca = request.query_params.get('busca')
+    # Aceitar tanto 'categoria' quanto 'categorias' (plural)
     raw_categoria_params = request.query_params.getlist('categoria')
+    raw_categorias_params = request.query_params.getlist('categorias')
+    raw_categoria_params.extend(raw_categorias_params)
     raw_tipo_servico_params = request.query_params.getlist('tipo_servico')
     raw_categoria_params += raw_tipo_servico_params
 
     if not raw_categoria_params:
-        categoria_single = request.query_params.get('categoria')
+        categoria_single = request.query_params.get('categoria') or request.query_params.get('categorias')
         tipo_single = request.query_params.get('tipo_servico')
         for single in (categoria_single, tipo_single):
             if single:
