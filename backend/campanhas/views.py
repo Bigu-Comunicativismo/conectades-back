@@ -327,9 +327,13 @@ def listar_campanhas(request):
     # Obter query params
     busca = request.query_params.get('busca', None)
 
+    # Aceitar tanto 'categoria' quanto 'categorias' (plural)
     raw_categoria_params = request.query_params.getlist('categoria')
+    raw_categorias_params = request.query_params.getlist('categorias')
+    raw_categoria_params.extend(raw_categorias_params)
+    
     if not raw_categoria_params:
-        categoria_single = request.query_params.get('categoria')
+        categoria_single = request.query_params.get('categoria') or request.query_params.get('categorias')
         if categoria_single:
             raw_categoria_params = [categoria_single]
 
@@ -376,7 +380,7 @@ def listar_campanhas(request):
     status_filtro = request.query_params.get('status', 'ativa')  # Padrão: apenas ativas
     ordenar = request.query_params.get('ordenar', 'recente')  # Padrão: mais recentes
     
-    # Montar cache key baseado nos filtros
+    # Montar cache key baseado nos filtros (incluindo categorias plural)
     categoria_cache_key = ','.join(sorted(map(str, raw_categoria_params))) if raw_categoria_params else 'None'
     localizacao_cache_key = ','.join(sorted(map(str, raw_localizacao_params))) if raw_localizacao_params else 'None'
     cache_key = f'campanhas_{busca}_{categoria_cache_key}_{localizacao_cache_key}_{status_filtro}_{ordenar}'
